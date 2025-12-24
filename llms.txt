@@ -15139,9 +15139,11 @@ const renderHeader = () => (
 File: src/renderer/src/components/message/ThinkingAnswerBlock.tsx
 ================
 import { MouseEvent, useState } from 'react';
-import { FaBrain, FaChevronDown, FaChevronRight } from 'react-icons/fa';
+import { FaChevronDown, FaChevronRight } from 'react-icons/fa';
+import { TfiThought } from 'react-icons/tfi';
 import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
+import { AnimatePresence, motion } from 'framer-motion';
 ⋮----
 import { CopyMessageButton } from './CopyMessageButton';
 ⋮----
@@ -15155,15 +15157,20 @@ type Props = {
   renderMarkdown: boolean;
 };
 ⋮----
+// Internal state for manual toggle control
+⋮----
+// Determine expansion state:
+// - Start expanded (true) when there's no answer
+// - When answer arrives, auto-collapse to false
+// - Manual toggle overrides auto-collapse
+⋮----
 const handleToggleThinking = (e: MouseEvent<HTMLDivElement>) =>
 ⋮----
 {/* Thinking section */}
 ⋮----
-<div className=
+className=
 ⋮----
 {/* Answer section - only show if we have an answer or we're streaming */}
-⋮----
-className=
 
 ================
 File: src/renderer/src/components/message/ToolMessageBlock.tsx
@@ -17741,7 +17748,7 @@ label=
 File: src/renderer/src/components/project/WorktreeMergeButton.tsx
 ================
 import { useState, useRef } from 'react';
-import { FaDownload } from 'react-icons/fa6';
+import { FaArrowsRotate, FaBan, FaCodeMerge, FaCompress, FaDownload, FaFileLines, FaPlay, FaRobot } from 'react-icons/fa6';
 import { MdKeyboardArrowDown } from 'react-icons/md';
 import { useTranslation } from 'react-i18next';
 import { WorktreeIntegrationStatus } from '@common/types';
