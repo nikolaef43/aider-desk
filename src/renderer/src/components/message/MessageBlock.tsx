@@ -9,6 +9,7 @@ import {
   MEMORY_TOOL_RETRIEVE,
   MEMORY_TOOL_DELETE,
   MEMORY_TOOL_LIST,
+  MEMORY_TOOL_UPDATE,
   POWER_TOOL_BASH,
   POWER_TOOL_FETCH,
   POWER_TOOL_FILE_EDIT,
@@ -55,7 +56,9 @@ import { StoreMemoryToolMessage } from './StoreMemoryToolMessage';
 import { RetrieveMemoryToolMessage } from './RetrieveMemoryToolMessage';
 import { DeleteMemoryToolMessage } from './DeleteMemoryToolMessage';
 import { ListMemoriesToolMessage } from './ListMemoriesToolMessage';
+import { UpdateMemoryToolMessage } from './UpdateMemoryToolMessage';
 import { ActivateSkillToolMessage } from './ActivateSkillToolMessage';
+import { TaskInfoMessage } from './TaskInfoMessage';
 import { areMessagesEqual } from './utils';
 
 import {
@@ -64,6 +67,7 @@ import {
   isLogMessage,
   isReflectedMessage,
   isResponseMessage,
+  isTaskInfoMessage,
   isToolMessage,
   isUserMessage,
   LogMessage,
@@ -96,6 +100,10 @@ const MessageBlockComponent = ({ baseDir, taskId, message, allFiles, renderMarkd
 
   if (isReflectedMessage(message)) {
     return <ReflectedMessageBlock baseDir={baseDir} message={message} allFiles={allFiles} compact={compact} />;
+  }
+
+  if (isTaskInfoMessage(message)) {
+    return <TaskInfoMessage message={message} onRemove={remove} />;
   }
 
   if (isCommandOutputMessage(message)) {
@@ -181,6 +189,8 @@ const MessageBlockComponent = ({ baseDir, taskId, message, allFiles, renderMarkd
             return <DeleteMemoryToolMessage message={toolMessage} onRemove={remove} compact={compact} />;
           case MEMORY_TOOL_LIST:
             return <ListMemoriesToolMessage message={toolMessage} onRemove={remove} compact={compact} />;
+          case MEMORY_TOOL_UPDATE:
+            return <UpdateMemoryToolMessage message={toolMessage} onRemove={remove} compact={compact} />;
           default:
             break;
         }

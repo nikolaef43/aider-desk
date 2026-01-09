@@ -1,4 +1,4 @@
-import { type AgentProfile, InvocationMode, type TaskData, ToolApprovalState } from '@common/types';
+import { type AgentProfile, InvocationMode, ToolApprovalState } from '@common/types';
 import { isSubagentEnabled } from '@common/agent';
 import { cloneDeep } from 'lodash';
 import { type ModelMessage, type ToolContent, type ToolResultPart, type UserModelMessage } from 'ai';
@@ -18,17 +18,19 @@ import { extractTextContent } from '@common/utils';
 
 import logger from '@/logger';
 import { type CacheControl } from '@/models';
+import { Task } from '@/task';
+import { getSubagentId } from '@/agent/tools/subagents';
 
 /**
  * Optimizes the messages before sending them to the LLM. This should reduce the token count and improve the performance.
  */
 export const optimizeMessages = (
+  task: Task,
   profile: AgentProfile,
   projectProfiles: AgentProfile[],
   userRequestMessageIndex: number,
   messages: ModelMessage[],
   cacheControl: CacheControl | undefined,
-  task?: TaskData,
 ) => {
   if (messages.length === 0) {
     return [];
@@ -36,7 +38,7 @@ export const optimizeMessages = (
 
   let optimizedMessages = cloneDeep(messages);
 
-  optimizedMessages = addImportantReminders(profile, projectProfiles, userRequestMessageIndex, optimizedMessages, task);
+  optimizedMessages = addImportantReminders(task, profile, projectProfiles, userRequestMessageIndex, optimizedMessages);
   optimizedMessages = convertImageToolResults(optimizedMessages);
   optimizedMessages = removeDuplicateToolCalls(optimizedMessages);
   optimizedMessages = optimizeAiderMessages(optimizedMessages);
@@ -80,11 +82,11 @@ export const optimizeMessages = (
 };
 
 const addImportantReminders = (
+  task: Task,
   profile: AgentProfile,
   projectProfiles: AgentProfile[],
   userRequestMessageIndex: number,
   messages: ModelMessage[],
-  task?: TaskData,
 ): ModelMessage[] => {
   const userRequestMessage = messages[userRequestMessageIndex] as UserModelMessage;
   const reminders: string[] = [];
@@ -103,13 +105,18 @@ const addImportantReminders = (
     );
 
     if (automaticSubagents.length > 0) {
-      const subagents = automaticSubagents.map((subagent) => `    - ${subagent.name}`).join('\n');
+      const subagents = automaticSubagents.map((subagent) => `    - ${getSubagentId(subagent)}: ${subagent.subagent.description}`).join('\n');
       reminders.push(`Use the following automatic subagents when appropriate based on their descriptions:\n${subagents}`);
     }
   }
 
-  if (!task?.autoApprove && !profile.isSubagent) {
+  if (!task.task.autoApprove && !profile.isSubagent) {
     reminders.push('Before making any complex changes, present the plan and wait for my approval.');
+  }
+
+  // Add reminder about worktree mode
+  if (task.getTaskDir() !== task.getProjectDir()) {
+    reminders.push(`You are working in worktree mode inside ${task.getTaskDir()}. Modify files inside that directory when making changes.`);
   }
 
   if (profile.useMemoryTools) {
@@ -117,7 +124,7 @@ const addImportantReminders = (
       profile.toolApprovals[`${MEMORY_TOOL_GROUP_NAME}${TOOL_GROUP_NAME_SEPARATOR}${MEMORY_TOOL_RETRIEVE}`] !== ToolApprovalState.Never;
     const storeMemoryAllowed = profile.toolApprovals[`${MEMORY_TOOL_GROUP_NAME}${TOOL_GROUP_NAME_SEPARATOR}${MEMORY_TOOL_STORE}`] !== ToolApprovalState.Never;
     if (retrieveMemoryAllowed) {
-      reminders.push('Retrieve relevant memories using at the beginning of a task to see if there is any relevant information.');
+      reminders.push('Retrieve relevant memories at the beginning of a task to see if there is any relevant information.');
     }
     if (storeMemoryAllowed) {
       reminders.push(
@@ -130,7 +137,7 @@ const addImportantReminders = (
     return messages;
   }
 
-  const importantReminders = `\n\nTHIS IS IMPORTANT:\n- ${reminders.join('\n- ')}`;
+  const importantReminders = `\n\n<ThisIsImportant>\n${reminders.map((reminder) => `<Reminder>\n${reminder}\n</Reminder>`).join('\n ')}\n</ThisIsImportant>`;
 
   const updatedFirstUserMessage = {
     ...userRequestMessage,

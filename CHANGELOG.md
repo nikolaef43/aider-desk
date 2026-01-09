@@ -2,12 +2,61 @@
 
 ## [UNRELEASED]
 
+- added missing menu actions to the last user message
+- correctly handling copy actions on MacOS and mobile devices
+- correctly handling export to markdown in browsers
+- removed duplicate AGENTS.md entry from the system prompt knowledge section
+- added direct support for Synthetic provider
+- optimized performance when switching between tasks and projects
+- added /task-info command for task information
+- added favicon to browser clients
+- properly using the compacting threshold from the task when updated
+- added configuration option to hide task state actions
+- added output streaming to bash power tool during the execution
+
+## [0.47.0]
+
+- added ability to pin tasks to the top of the task sidebar
+- added AI-powered task name generation
+- fixed context manager not marking as loaded in some cases
+- improved cost input field editing in Model Library to avoid reformatting during typing
+- sanitizing agent profile when reading the config file to ensure all required fields are present
+- added worktree directory important reminder when working in the worktree
+- added shift-click support for selecting task ranges in multiselect mode
+- correctly showing uncut list of uncommited files in the worktree status
+- added task actions based on the task state for easier workflow
+- added task settings page with smart task state and auto-generate task name configuration
+- improved instructions for using memory tools for better utilization
+- added ability to delete memories from the retrieve memory tool message
+- added optional state input argument to list tasks tool to filter by state
+- added optional format for fetch tool to fetch markdown, html or raw content
+- matching for full path when checking if file exists in the context before asking to add it
+- updated default temperature for Z.AI models to 0.7 for better results
+
+## [0.46.0]
+
 - added Vitest testing framework
 - added Writing Tests skill
 - implemented templating system for agent prompts with modular structure
 - enhanced thinking block content handling
 - improved cursor styling for context file section headers
 - added icons to worktree merge related actions
+- added keyboard shortcuts
+- fixed task selection on touch devices
+- added navigation for jumping between user messages
+- correctly showing usage data on tool results when loading existing tasks
+- added support for custom system prompts for main agent, compact conversation and other prompts
+- correctly showing the rule files based on the current task mode
+- added optional execute argument to create task tool to allow executing it after creation
+- added update memory tool to complement other memory tools
+- added copy button to the bash tool command
+- added ability to disable provider profiles to hide their models
+- added missing endpoint for updating model
+- correctly allowing to run multiple tasks simultaneously in the browser
+- added multi-select support for file suggestions using Ctrl/Cmd key
+
+## [0.45.1]
+
 - using ollama_chat/ prefix for ollama models in Aider modes to fix 'parsing chunk' issue with gpt-oss models
 
 ## [0.45.0]

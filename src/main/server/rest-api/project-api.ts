@@ -99,6 +99,11 @@ const RedoLastUserPromptSchema = z.object({
   updatedPrompt: z.string().optional(),
 });
 
+const ResumeTaskSchema = z.object({
+  projectDir: z.string().min(1, 'Project directory is required'),
+  taskId: z.string().min(1, 'Task id is required'),
+});
+
 const IsValidPathSchema = z.object({
   projectDir: z.string().min(1, 'Project directory is required'),
   path: z.string().min(1, 'Path is required'),
@@ -291,6 +296,21 @@ export class ProjectApi extends BaseApi {
         const { projectDir, taskId, mode, updatedPrompt } = parsed;
         await this.eventsHandler.redoLastUserPrompt(projectDir, taskId, mode, updatedPrompt);
         res.status(200).json({ message: 'Redo last user prompt initiated' });
+      }),
+    );
+
+    // Resume task
+    router.post(
+      '/project/resume-task',
+      this.handleRequest(async (req, res) => {
+        const parsed = this.validateRequest(ResumeTaskSchema, req.body, res);
+        if (!parsed) {
+          return;
+        }
+
+        const { projectDir, taskId } = parsed;
+        await this.eventsHandler.resumeTask(projectDir, taskId);
+        res.status(200).json({ message: 'Task resumed' });
       }),
     );
 
@@ -529,8 +549,17 @@ export class ProjectApi extends BaseApi {
         }
 
         const { projectDir, taskId } = parsed;
-        await this.eventsHandler.exportTaskToMarkdown(projectDir, taskId);
-        res.status(200).json({ message: 'Session exported to markdown' });
+        const markdownContent = await this.eventsHandler.generateTaskMarkdown(projectDir, taskId);
+
+        if (!markdownContent) {
+          res.status(404).json({ error: 'Task not found or no content to export' });
+          return;
+        }
+
+        const filename = `session-${new Date().toISOString().replace(/:/g, '-').substring(0, 19)}.md`;
+        res.setHeader('Content-Type', 'text/markdown');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.status(200).send(markdownContent);
       }),
     );
 

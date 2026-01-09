@@ -1,8 +1,9 @@
-import { forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef } from 'react';
-import { MdKeyboardArrowDown } from 'react-icons/md';
+import { MdKeyboardDoubleArrowDown } from 'react-icons/md';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { IoPlay } from 'react-icons/io5';
+import { TaskData } from '@common/types';
+import { forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef } from 'react';
+import { TaskStateActions } from 'src/renderer/src/components/message/TaskStateActions';
 
 import { MessageBlock } from './MessageBlock';
 import { GroupMessageBlock } from './GroupMessageBlock';
@@ -12,8 +13,8 @@ import { IconButton } from '@/components/common/IconButton';
 import { StyledTooltip } from '@/components/common/StyledTooltip';
 import { groupMessagesByPromptContext } from '@/components/message/utils';
 import { showInfoNotification } from '@/utils/notifications';
-import { Button } from '@/components/common/Button';
 import { useScrollingPaused } from '@/hooks/useScrollingPaused';
+import { useSettings } from '@/contexts/SettingsContext';
 
 export type VirtualizedMessagesRef = {
   exportToImage: () => void;
@@ -24,18 +25,44 @@ export type VirtualizedMessagesRef = {
 type Props = {
   baseDir: string;
   taskId: string;
+  task: TaskData;
   messages: Message[];
   allFiles?: string[];
   renderMarkdown: boolean;
   removeMessage: (message: Message) => void;
+  resumeTask: () => void;
   redoLastUserPrompt: () => void;
   editLastUserMessage: (content: string) => void;
-  processing: boolean;
+  onMarkAsDone: () => void;
+  onProceed?: () => void;
+  onArchiveTask?: () => void;
+  onUnarchiveTask?: () => void;
+  onDeleteTask?: () => void;
 };
 
 export const VirtualizedMessages = forwardRef<VirtualizedMessagesRef, Props>(
-  ({ baseDir, taskId, messages, allFiles = [], renderMarkdown, removeMessage, redoLastUserPrompt, editLastUserMessage, processing }, ref) => {
+  (
+    {
+      baseDir,
+      taskId,
+      task,
+      messages,
+      allFiles = [],
+      renderMarkdown,
+      removeMessage,
+      resumeTask,
+      redoLastUserPrompt,
+      editLastUserMessage,
+      onMarkAsDone,
+      onProceed,
+      onArchiveTask,
+      onUnarchiveTask,
+      onDeleteTask,
+    },
+    ref,
+  ) => {
     const { t } = useTranslation();
+    const { settings } = useSettings();
     const messagesContainerRef = useRef<HTMLDivElement>(null);
 
     // Group messages by promptContext.group.id
@@ -66,11 +93,10 @@ export const VirtualizedMessages = forwardRef<VirtualizedMessagesRef, Props>(
 
     useLayoutEffect(() => {
       if (!scrollingPaused && processedMessages.length > 0) {
-        // Scroll to the last item when new messages arrive
+        // Scroll to last item when new messages arrive
         virtualizer.scrollToOffset(virtualizer.getTotalSize() + 100);
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [processedMessages]);
+    }, [processedMessages, scrollingPaused, virtualizer]);
 
     const exportToImage = async () => {
       // Show notification that export is not available with virtualized rendering
@@ -83,36 +109,30 @@ export const VirtualizedMessages = forwardRef<VirtualizedMessagesRef, Props>(
       scrollToBottom,
     }));
 
-    const items = virtualizer.getVirtualItems();
-
     return (
-      <div className="relative flex flex-col h-full">
+      <div className="group relative flex flex-col h-full">
         <StyledTooltip id="usage-info-tooltip" />
 
         <div
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto p-4
-            scrollbar-thin
-            scrollbar-track-bg-primary-light
-            scrollbar-thumb-bg-tertiary
-            hover:scrollbar-thumb-bg-fourth"
+          className="flex flex-col overflow-y-auto max-h-full p-4 scrollbar-thin scrollbar-track-bg-primary-light scrollbar-thumb-bg-tertiary hover:scrollbar-thumb-bg-fourth"
           {...eventHandlers}
         >
           <div
             style={{
-              height: virtualizer.getTotalSize(),
+              height: `${virtualizer.getTotalSize()}px`,
               width: '100%',
               position: 'relative',
             }}
           >
-            {items.map((virtualRow) => {
+            {virtualizer.getVirtualItems().map((virtualRow) => {
               const message = processedMessages[virtualRow.index];
 
               return (
                 <div
                   key={message.id || virtualRow.index}
-                  ref={virtualizer.measureElement}
                   data-index={virtualRow.index}
+                  ref={virtualizer.measureElement}
                   style={{
                     position: 'absolute',
                     top: 0,
@@ -129,7 +149,7 @@ export const VirtualizedMessages = forwardRef<VirtualizedMessagesRef, Props>(
                       allFiles={allFiles}
                       renderMarkdown={renderMarkdown}
                       remove={(msg: Message) => removeMessage(msg)}
-                      redo={redoLastUserPrompt}
+                      redo={resumeTask}
                       edit={editLastUserMessage}
                     />
                   ) : (
@@ -151,9 +171,9 @@ export const VirtualizedMessages = forwardRef<VirtualizedMessagesRef, Props>(
         </div>
 
         {scrollingPaused && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10">
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex gap-1">
             <IconButton
-              icon={<MdKeyboardArrowDown className="h-6 w-6" />}
+              icon={<MdKeyboardDoubleArrowDown className="h-6 w-6" />}
               onClick={scrollToBottom}
               tooltip={t('messages.scrollToBottom')}
               className="bg-bg-primary-light border border-border-default shadow-lg hover:bg-bg-secondary transition-colors duration-200"
@@ -161,13 +181,16 @@ export const VirtualizedMessages = forwardRef<VirtualizedMessagesRef, Props>(
             />
           </div>
         )}
-        {!processing && lastUserMessageIndex === processedMessages.length - 1 && (
-          <div className="flex justify-center align-center py-4 px-6">
-            <Button variant="outline" color="primary" size="xs" onClick={redoLastUserPrompt}>
-              <IoPlay className="mr-1 w-3 h-3" />
-              {t('messages.execute')}
-            </Button>
-          </div>
+        {settings?.taskSettings?.showTaskStateActions && (
+          <TaskStateActions
+            task={task}
+            onResumeTask={resumeTask}
+            onMarkAsDone={onMarkAsDone}
+            onProceed={onProceed}
+            onArchiveTask={onArchiveTask}
+            onUnarchiveTask={onUnarchiveTask}
+            onDeleteTask={onDeleteTask}
+          />
         )}
       </div>
     );

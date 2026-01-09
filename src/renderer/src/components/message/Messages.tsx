@@ -1,8 +1,9 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { toPng } from 'html-to-image';
-import { MdKeyboardArrowDown } from 'react-icons/md';
+import { MdKeyboardDoubleArrowDown } from 'react-icons/md';
 import { useTranslation } from 'react-i18next';
-import { IoPlay } from 'react-icons/io5';
+import { TaskData } from '@common/types';
+import { TaskStateActions } from 'src/renderer/src/components/message/TaskStateActions';
 
 import { MessageBlock } from './MessageBlock';
 import { GroupMessageBlock } from './GroupMessageBlock';
@@ -11,8 +12,9 @@ import { isGroupMessage, isUserMessage, Message } from '@/types/message';
 import { IconButton } from '@/components/common/IconButton';
 import { StyledTooltip } from '@/components/common/StyledTooltip';
 import { groupMessagesByPromptContext } from '@/components/message/utils';
-import { Button } from '@/components/common/Button';
 import { useScrollingPaused } from '@/hooks/useScrollingPaused';
+import { useUserMessageNavigation } from '@/hooks/useUserMessageNavigation';
+import { useSettings } from '@/contexts/SettingsContext';
 
 export type MessagesRef = {
   exportToImage: () => void;
@@ -23,17 +25,43 @@ export type MessagesRef = {
 type Props = {
   baseDir: string;
   taskId: string;
+  task: TaskData;
   messages: Message[];
   allFiles?: string[];
   renderMarkdown: boolean;
   removeMessage: (message: Message) => void;
+  resumeTask: () => void;
   redoLastUserPrompt: () => void;
   editLastUserMessage: (content: string) => void;
-  processing: boolean;
+  onMarkAsDone: () => void;
+  onProceed?: () => void;
+  onArchiveTask?: () => void;
+  onUnarchiveTask?: () => void;
+  onDeleteTask?: () => void;
 };
 
 export const Messages = forwardRef<MessagesRef, Props>(
-  ({ baseDir, taskId, messages, allFiles = [], renderMarkdown, removeMessage, redoLastUserPrompt, editLastUserMessage, processing }, ref) => {
+  (
+    {
+      baseDir,
+      taskId,
+      task,
+      messages,
+      allFiles = [],
+      renderMarkdown,
+      removeMessage,
+      resumeTask,
+      redoLastUserPrompt,
+      editLastUserMessage,
+      onMarkAsDone,
+      onProceed,
+      onArchiveTask,
+      onUnarchiveTask,
+      onDeleteTask,
+    },
+    ref,
+  ) => {
+    const { settings } = useSettings();
     const { t } = useTranslation();
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -42,7 +70,7 @@ export const Messages = forwardRef<MessagesRef, Props>(
     const processedMessages = groupMessagesByPromptContext(messages);
     const lastUserMessageIndex = processedMessages.findLastIndex(isUserMessage);
 
-    const { scrollingPaused, scrollToBottom, eventHandlers } = useScrollingPaused({
+    const { scrollingPaused, setScrollingPaused, scrollToBottom, eventHandlers } = useScrollingPaused({
       onAutoScroll: () => messagesEndRef.current?.scrollIntoView(),
     });
 
@@ -51,6 +79,21 @@ export const Messages = forwardRef<MessagesRef, Props>(
         messagesEndRef.current?.scrollIntoView();
       }
     }, [processedMessages, scrollingPaused]);
+
+    // Get all user message IDs
+    const userMessageIds = useMemo(() => {
+      return processedMessages.filter(isUserMessage).map((message) => message.id);
+    }, [processedMessages]);
+
+    const { hasPreviousUserMessage, hasNextUserMessage, renderGoToPrevious, renderGoToNext } = useUserMessageNavigation({
+      containerRef: messagesContainerRef,
+      userMessageIds,
+      scrollToMessageByElement: (element: HTMLElement) => {
+        setScrollingPaused(true);
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      },
+      buttonClassName: 'hidden group-hover:block',
+    });
 
     const exportToImage = async () => {
       const messagesContainer = messagesContainerRef.current;
@@ -83,26 +126,24 @@ export const Messages = forwardRef<MessagesRef, Props>(
     return (
       <div
         ref={messagesContainerRef}
-        className="flex flex-col overflow-y-auto max-h-full p-4
-      scrollbar-thin
-      scrollbar-track-bg-primary-light
-      scrollbar-thumb-bg-tertiary
-      hover:scrollbar-thumb-bg-fourth"
+        className="flex flex-col overflow-y-auto max-h-full p-4 scrollbar-thin scrollbar-track-bg-primary-light scrollbar-thumb-bg-tertiary hover:scrollbar-thumb-bg-fourth"
         {...eventHandlers}
       >
         <StyledTooltip id="usage-info-tooltip" />
-
-        {scrollingPaused && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10">
+        <div className="absolute left-1/2 -translate-x-1/2 w-[50%] bottom-0 z-10 flex justify-center gap-1 pt-20 pb-2 group">
+          {(hasPreviousUserMessage || hasNextUserMessage) && renderGoToPrevious()}
+          {scrollingPaused && (
             <IconButton
-              icon={<MdKeyboardArrowDown className="h-6 w-6" />}
+              icon={<MdKeyboardDoubleArrowDown className="h-6 w-6" />}
               onClick={scrollToBottom}
               tooltip={t('messages.scrollToBottom')}
               className="bg-bg-primary-light border border-border-default shadow-lg hover:bg-bg-secondary transition-colors duration-200"
               aria-label={t('messages.scrollToBottom')}
             />
-          </div>
-        )}
+          )}
+          {(hasPreviousUserMessage || hasNextUserMessage) && renderGoToNext()}
+        </div>
+
         {processedMessages.map((message, index) => {
           if (isGroupMessage(message)) {
             return (
@@ -114,7 +155,7 @@ export const Messages = forwardRef<MessagesRef, Props>(
                 allFiles={allFiles}
                 renderMarkdown={renderMarkdown}
                 remove={(msg: Message) => removeMessage(msg)}
-                redo={redoLastUserPrompt}
+                redo={resumeTask}
                 edit={editLastUserMessage}
               />
             );
@@ -134,13 +175,16 @@ export const Messages = forwardRef<MessagesRef, Props>(
           );
         })}
         <div ref={messagesEndRef} />
-        {!processing && lastUserMessageIndex === processedMessages.length - 1 && (
-          <div className="flex justify-center align-center py-4 px-6">
-            <Button variant="outline" color="primary" size="xs" onClick={redoLastUserPrompt}>
-              <IoPlay className="mr-1 w-3 h-3" />
-              {t('messages.execute')}
-            </Button>
-          </div>
+        {settings?.taskSettings?.showTaskStateActions && (
+          <TaskStateActions
+            task={task}
+            onResumeTask={resumeTask}
+            onMarkAsDone={onMarkAsDone}
+            onProceed={onProceed}
+            onArchiveTask={onArchiveTask}
+            onUnarchiveTask={onUnarchiveTask}
+            onDeleteTask={onDeleteTask}
+          />
         )}
       </div>
     );

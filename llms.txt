@@ -69,14 +69,6 @@ src/
     agent/
       middlewares/
         extract-reasoning-middleware.ts
-      templates/
-        compiler/
-          template-compiler.ts
-        helpers/
-          conditional.ts
-          formatting.ts
-          index.ts
-        types.ts
       tools/
         aider.ts
         approval-manager.ts
@@ -92,7 +84,6 @@ src/
       index.ts
       mcp-manager.ts
       optimizer.ts
-      prompts.ts
       utils.ts
     connector/
       connector-manager.ts
@@ -130,6 +121,7 @@ src/
         openai.ts
         openrouter.ts
         requesty.ts
+        synthetic.ts
         vertex-ai.ts
         zai-plan.ts
       index.ts
@@ -140,6 +132,14 @@ src/
       migrations.ts
       project-manager.ts
       project.ts
+    prompts/
+      helpers/
+        conditional.ts
+        formatting.ts
+        index.ts
+      index.ts
+      prompts-manager.ts
+      types.ts
     server/
       rest-api/
         agent-api.ts
@@ -264,6 +264,8 @@ src/
           InfoIcon.tsx
           Input.tsx
           ItemSelector.tsx
+          LoadingOverlay.tsx
+          LoadingText.tsx
           MarkdownInfoDialog.tsx
           ModalOverlayLayout.tsx
           MultiSelect.tsx
@@ -273,6 +275,7 @@ src/
           Slider.tsx
           StyledTooltip.tsx
           Table.tsx
+          TaskStateChip.tsx
           TextArea.tsx
           TriStateCheckbox.tsx
           VerticalDotsMenu.tsx
@@ -316,8 +319,11 @@ src/
           SemanticSearchToolMessage.tsx
           StoreMemoryToolMessage.tsx
           SubagentToolMessage.tsx
+          TaskInfoMessage.tsx
+          TaskStateActions.tsx
           ThinkingAnswerBlock.tsx
           ToolMessageBlock.tsx
+          UpdateMemoryToolMessage.tsx
           UsageInfo.tsx
           UserMessageBlock.tsx
           utils.tsx
@@ -355,6 +361,7 @@ src/
             RequestyAdvancedSettings.tsx
             RequestyModelOverrides.tsx
             RequestyParameters.tsx
+            SyntheticParameters.tsx
             VertexAiAdvancedSettings.tsx
             VertexAiModelOverrides.tsx
             VertexAIParameters.tsx
@@ -368,6 +375,7 @@ src/
           ProviderCard.tsx
           ProviderHeader.tsx
           ProviderProfileCard.tsx
+          ProviderProfileDialog.tsx
           ProviderProfileForm.tsx
           ProviderSelection.tsx
         onboarding/
@@ -419,10 +427,14 @@ src/
           AboutSettings.tsx
           AiderSettings.tsx
           GeneralSettings.tsx
+          HotkeyConfig.tsx
+          HotkeysSettings.tsx
           LanguageSelector.tsx
           MemorySettings.tsx
           ServerSettings.tsx
+          SettingsDialog.tsx
           SettingsPage.tsx
+          TaskSettings.tsx
           VoiceSettings.tsx
         terminal/
           Terminal.scss
@@ -473,6 +485,7 @@ src/
         useAudioRecorder.ts
         useBooleanState.ts
         useClickOutside.ts
+        useConfiguredHotkeys.ts
         useCustomCommands.ts
         useEffectiveEnvironmentVariable.ts
         useIndexedDB.ts
@@ -485,6 +498,8 @@ src/
         useResponsive.ts
         useScrollingPaused.ts
         useSearchText.tsx
+        useTypingAnimation.ts
+        useUserMessageNavigation.tsx
         useVersions.ts
       i18n/
         index.ts
@@ -507,7 +522,7 @@ src/
         OpenRouterIcon.tsx
         requesty.png
         RequestyIcon.tsx
-        santa-hat.png
+        SyntheticIcon.tsx
         VertexAiIcon.tsx
         ZaiPlanIcon.tsx
       pages/
@@ -537,11 +552,13 @@ src/
       utils/
         agents.ts
         highlighter.tsx
+        hotkeys.ts
         indexedDB.ts
         notifications.ts
         path-utils.ts
         routes.ts
         string-utils.ts
+        task-utils.ts
       voice/
         gemini.ts
         index.ts
@@ -552,6 +569,7 @@ src/
       fonts.css
       main.css
       main.tsx
+    favicon.ico
     index.html
     progress.html
 electron-builder.yml
@@ -1439,7 +1457,9 @@ File: src/common/locales/en.json
     "placeholder": "e.g. anthropic/claude-sonnet-4-20250514",
     "chooseModelsToAdd": "Choose models to add...",
     "library": {
-      "all": "All"
+      "all": "All",
+      "deleteMemoryTitle": "Delete Memory",
+      "deleteMemoryDialogText": "Are you sure you want to delete this memory?"
     }
   },
   "modelLibrary": {
@@ -1460,6 +1480,7 @@ File: src/common/locales/en.json
     "all": "All",
     "refresh": "Refresh",
     "selectProvider": "Select a Provider to Configure",
+    "editProvider": "Edit Provider",
     "profileForm": {
       "title": "Configure Profile for {{provider}} Provider",
       "name": "Profile Name",
@@ -1518,7 +1539,10 @@ File: src/common/locales/en.json
       "overridesProviderParameters": "Overrides some provider parameters"
     },
     "disableStreaming": "Disable streaming",
-    "disableStreamingInfo": "Disables response streaming. Use this when the provider or model does not support streaming responses."
+    "disableStreamingInfo": "Disables response streaming. Use this when the provider or model does not support streaming responses.",
+    "disable": "Disable",
+    "enable": "Enable",
+    "providerDisabled": "This provider is disabled. Its models will not be available."
   },
   "openai": {
     "apiKey": "API Key",
@@ -1588,6 +1612,9 @@ File: src/common/locales/en.json
     "baseUrlPlaceholder": "http://localhost",
     "apiKey": "API Key"
   },
+  "synthetic": {
+    "apiKey": "API Key"
+  },
   "zaiPlan": {
     "apiKey": "API Key"
   },
@@ -1612,6 +1639,7 @@ File: src/common/locales/en.json
     "openai-compatible": "OpenAI Compatible",
     "openrouter": "OpenRouter",
     "requesty": "Requesty",
+    "synthetic": "Synthetic",
     "vertex-ai": "Vertex AI",
     "zai-plan": "Z.AI Coding Plan",
     "azure": "Azure"
@@ -1625,10 +1653,46 @@ File: src/common/locales/en.json
       "general": "General",
       "aider": "Aider",
       "agents": "Agents",
+      "tasks": "Tasks",
       "memory": "Memory",
       "voice": "Voice",
+      "hotkeys": "Hotkeys",
       "server": "Server",
       "about": "About"
+    },
+    "hotkeys": {
+      "projectHotkeys": "Project",
+      "taskHotkeys": "Task",
+      "dialogHotkeys": "Dialogs",
+      "closeProject": "Close Project",
+      "newProject": "New Project",
+      "usageDashboard": "Usage Dashboard",
+      "modelLibrary": "Model Library",
+      "settings": "Settings",
+      "cycleNextProject": "Cycle next project",
+      "cyclePrevProject": "Cycle previous project",
+      "switchProject": "Switch to Project {{number}}",
+      "switchTask": "Switch to Task {{number}}",
+      "focusPrompt": "Focus Prompt",
+      "newTask": "New Task",
+      "closeTask": "Close Task",
+      "browseFolder": "Browse Folder",
+      "enterHotkey": "Enter hotkey...",
+      "resetToDefaults": "Reset to Defaults",
+      "hotkeyFormat": "Hotkey Format:",
+      "modKey": "Use 'mod' for Cmd (Mac) or Ctrl (Windows/Linux)",
+      "multipleKeys": "Separate multiple key combinations with commas",
+      "examples": "Examples: 'mod+w', 'ctrl+shift+t', 'alt+1,meta+1'",
+      "clickToRecord": "Click to record",
+      "recording": "Press keys...",
+      "addShortcut": "Add shortcut",
+      "editShortcut": "Edit shortcut",
+      "clearShortcut": "Clear shortcut",
+      "noShortcut": "No shortcut configured",
+      "recordShortcutDescription": "Press the record button below and then press the key combination you want to use as a shortcut.",
+      "pressKeysToRecord": "Press keys to record...",
+      "startRecording": "Start Recording",
+      "stopRecording": "Stop Recording"
     },
     "gui": "Appearance",
     "voice": {
@@ -1657,6 +1721,15 @@ File: src/common/locales/en.json
       "title": "Start Up",
       "emptyTask": "Start with empty task",
       "lastTask": "Load last task"
+    },
+    "tasks": {
+      "title": "Tasks",
+      "smartTaskState": "Smart Task State",
+      "smartTaskStateTooltip": "When enabled, the model intelligently analyzes the agent's response to classify the task as 'More Info Needed', 'Ready for Implementation', or 'Ready for Review'. When disabled, the task state will always be set to 'Ready for Review'.",
+      "autoGenerateTaskName": "Auto-Generate Task Name",
+      "autoGenerateTaskNameTooltip": "When enabled, the model generates a concise task name from your prompt. When disabled, the first 5 words of your prompt will be used as the task name.",
+      "showTaskStateActions": "Show Task State Actions",
+      "showTaskStateActionsTooltip": "When enabled, task state actions are displayed at the bottom of messages. Disable to hide these actions."
     },
     "language": "Language",
     "notifications": {
@@ -1942,6 +2015,8 @@ File: src/common/locales/en.json
     "copy": "Copy",
     "copied": "Copied!",
     "interrupted": "Interrupted by user.",
+    "taskInterrupted": "Task Interrupted",
+    "taskInterruptedDescription": "The task was interrupted by the user while in progress.",
     "delete": "Delete",
     "redo": "Redo",
     "edit": "Edit",
@@ -1949,9 +2024,23 @@ File: src/common/locales/en.json
     "cancelEdit": "Cancel",
     "group": "Group",
     "scrollToBottom": "Scroll to bottom",
+    "previousUserMessage": "Previous user message",
+    "nextUserMessage": "Next user message",
     "messageBar": "Message Bar",
     "exportNotAvailableWithVirtualized": "Export to image is not available when using virtualized message rendering. Change to standard rendering in Settings -> General -> Message Display.",
-    "execute": "Execute"
+    "execute": "Execute",
+    "resume": "Resume",
+    "taskReadyForReview": "Task Ready for Review",
+    "taskTodo": "Task Not Started",
+    "taskTodoDescription": "Task Ready to Execute.",
+    "markAsDone": "Mark as done",
+    "taskReadyForImplementation": "Task Ready for Implementation",
+    "taskDone": "Task Completed",
+    "taskDoneArchived": "Task Completed and Archived",
+    "proceed": "Proceed",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "confirmDelete": "Confirm Delete"
   },
   "errors": {
     "frozenTitle": "AIDER FROZEN?",
@@ -2132,10 +2221,14 @@ File: src/common/locales/en.json
     "deniedByReason": "Denied by user:\n{{reason}}",
     "tasks": {
       "listTasks": "List tasks",
+      "listTasksWithState": "List tasks with state: {{state}}",
       "getTask": "Get task",
       "getTaskMessage": "Get task message",
       "createTask": "Create task",
       "deleteTask": "Delete task",
+      "execute": "Execute",
+      "yes": "Yes",
+      "no": "No",
       "taskId": "Task ID",
       "messageIndex": "Message Index",
       "prompt": "Prompt",
@@ -2225,8 +2318,7 @@ File: src/common/locales/en.json
         "resultLabel": "Result {{index}}"
       },
       "fetch": {
-        "title": "Fetch",
-        "contentTruncated": "Content truncated. Full content available in copy."
+        "title": "Fetch"
       }
     },
     "memory": {
@@ -2234,25 +2326,33 @@ File: src/common/locales/en.json
       "storingMemory": "Storing memory...",
       "retrievingMemories": "Retrieving memories...",
       "deletingMemory": "Deleting memory...",
+      "updatingMemory": "Updating memory...",
       "listingMemories": "Listing memories...",
       "memoryStored": "Memory stored.",
+      "memoryUpdated": "Memory updated.",
       "memoryDeleted": "Memory deleted.",
       "memoryId": "Memory ID",
       "type": "Type",
       "content": "Content",
+      "newContent": "New Content",
       "query": "Query",
       "limit": "Limit",
       "foundMemories": "Found {{count}} memories.",
       "noMemoriesFound": "No relevant memories have been found.",
       "noRelevantMemories": "No relevant memories have been found",
       "storedMemoryDetails": "Stored Memory Details",
+      "updatedMemoryDetails": "Updated Memory Details",
       "deletedMemoryDetails": "Deleted Memory Details",
       "retrievedMemories": "Retrieved Memories",
       "memoryList": "Memory List",
       "listedMemories": "Listing {{count}} memories.",
       "ofType": "of type {{type}}",
       "noMemoriesOfType": "No memories found of type: {{type}}",
-      "all": "All"
+      "all": "All",
+      "delete": "Delete",
+      "memoryNotFound": "Not found",
+      "deleteDialogTitle": "Delete memory",
+      "deleteDialogText": "Are you sure you want to delete this memory?"
     },
     "subagents": {
       "groupRunning": "{{name}}: Subagent is working...",
@@ -2387,6 +2487,7 @@ File: src/common/locales/en.json
     "reasoning-effort": "Set the reasoning effort level (values: minimal/low/medium/high depending on model)",
     "reset": "Drop all files and clear the chat history",
     "run": "Run a shell command and optionally add the output to the chat",
+    "task-info": "Show task information",
     "test": "Run a predefined test command and add the output to the chat on non-zero exit code",
     "think-tokens": "Set the thinking token budget (supports formats like 8096, 8k, 10.5k, 0.5M)",
     "tokens": "Report on the number of tokens used by the current chat context",
@@ -2473,11 +2574,12 @@ File: src/common/locales/en.json
     "deleteConfirm": "Are you sure you want to delete this task?",
     "createTask": "Create new task",
     "rename": "Rename",
+    "pinTask": "Pin task",
+    "unpinTask": "Unpin task",
     "taskNamePlaceholder": "Enter task name...",
     "untitled": "[Untitled]",
     "exportAsMarkdown": "Export as markdown",
     "exportAsImage": "Export as image",
-    "copyTaskId": "Copy task ID",
     "taskIdCopied": "Task ID {{taskId}} copied to clipboard",
     "duplicateTask": "Duplicate Task",
     "search": "Search tasks",
@@ -2495,7 +2597,32 @@ File: src/common/locales/en.json
     "unarchiveSelected": "Unarchive selected",
     "deleteSelectedConfirm": "Are you sure you want to delete {{count}} selected tasks?",
     "archiveSelectedConfirm": "Are you sure you want to archive {{count}} selected tasks?",
-    "unarchiveSelectedConfirm": "Are you sure you want to unarchive {{count}} selected tasks?"
+    "unarchiveSelectedConfirm": "Are you sure you want to unarchive {{count}} selected tasks?",
+    "generatingName": "Generating name..."
+  },
+  "taskInfo": {
+    "createdAt": "Created at",
+    "updatedAt": "Updated at",
+    "worktreeDirectory": "Worktree Directory",
+    "baseBranch": "Base Branch",
+    "baseCommit": "Base Commit",
+    "targetBranch": "Target Branch",
+    "lastMergeState": "Last Merge State",
+    "beforeMergeCommit": "Before Merge Commit",
+    "mergeTimestamp": "Merge Timestamp",
+    "openFolder": "Open Folder",
+    "taskId": "Task ID",
+    "state": "State",
+    "messageCount": "Message count"
+  },
+  "taskState": {
+    "TODO": "Todo",
+    "IN_PROGRESS": "In Progress",
+    "INTERRUPTED": "Interrupted",
+    "MORE_INFO_NEEDED": "More Info Needed",
+    "READY_FOR_REVIEW": "Ready for Review",
+    "READY_FOR_IMPLEMENTATION": "Ready for Implementation",
+    "DONE": "Done"
   },
   "worktree": {
     "aheadCommits": "↑ {{count}} commits",
@@ -2737,7 +2864,9 @@ File: src/common/locales/zh.json
     "placeholder": "输入模型名称",
     "chooseModelsToAdd": "选择要添加的模型...",
     "library": {
-      "all": "全部"
+      "all": "全部",
+      "deleteMemoryTitle": "删除记忆",
+      "deleteMemoryDialogText": "您确定要删除此记忆吗？"
     }
   },
   "modelLibrary": {
@@ -2758,6 +2887,7 @@ File: src/common/locales/zh.json
     "all": "全部",
     "refresh": "刷新",
     "selectProvider": "选择要配置的提供商",
+    "editProvider": "编辑提供商",
     "profileForm": {
       "title": "配置 {{provider}} 提供商的配置文件",
       "name": "配置文件名称",
@@ -2816,7 +2946,10 @@ File: src/common/locales/zh.json
       "overridesProviderParameters": "覆盖一些提供商参数"
     },
     "disableStreaming": "禁用流式传输",
-    "disableStreamingInfo": "禁用响应流式传输。当提供商或模型不支持流式传输时使用此选项。"
+    "disableStreamingInfo": "禁用响应流式传输。当提供商或模型不支持流式传输时使用此选项。",
+    "disable": "禁用",
+    "enable": "启用",
+    "providerDisabled": "此提供商已被禁用。其模型将不可用。"
   },
   "openai": {
     "apiKey": "API 密钥",
@@ -2847,6 +2980,9 @@ File: src/common/locales/zh.json
     "apiKey": "API 密钥"
   },
   "minimax": {
+    "apiKey": "API 密钥"
+  },
+  "synthetic": {
     "apiKey": "API 密钥"
   },
   "gemini": {
@@ -2908,6 +3044,7 @@ File: src/common/locales/zh.json
     "openai-compatible": "OpenAI Compatible",
     "openrouter": "OpenRouter",
     "requesty": "Requesty",
+    "synthetic": "Synthetic",
     "vertex-ai": "Vertex AI",
     "zai-plan": "Z.AI Coding Plan",
     "azure": "Azure"
@@ -2923,10 +3060,46 @@ File: src/common/locales/zh.json
       "providers": "模型提供者",
       "aider": "Aider",
       "agents": "代理",
+      "hotkeys": "快捷键",
       "server": "服务器",
       "memory": "记忆",
+      "tasks": "任务",
       "voice": "语音",
       "about": "关于"
+    },
+    "hotkeys": {
+      "projectHotkeys": "项目快捷键",
+      "taskHotkeys": "任务快捷键",
+      "dialogHotkeys": "对话框快捷键",
+      "closeProject": "关闭项目",
+      "newProject": "新建项目",
+      "usageDashboard": "使用情况面板",
+      "modelLibrary": "模型库",
+      "settings": "设置",
+      "cycleNextProject": "切换到下一个项目",
+      "cyclePrevProject": "切换到上一个项目",
+      "switchProject": "切换到项目 {{number}}",
+      "switchTask": "切换到任务 {{number}}",
+      "focusPrompt": "聚焦提示框",
+      "newTask": "新建任务",
+      "closeTask": "关闭任务",
+      "browseFolder": "浏览文件夹",
+      "enterHotkey": "输入快捷键...",
+      "resetToDefaults": "重置为默认值",
+      "hotkeyFormat": "快捷键格式：",
+      "modKey": "使用 'mod' 表示 Cmd (Mac) 或 Ctrl (Windows/Linux)",
+      "multipleKeys": "用逗号分隔多个按键组合",
+      "examples": "示例：'mod+w'、'ctrl+shift+t'、'alt+1,meta+1'",
+      "clickToRecord": "点击录制",
+      "recording": "按下按键...",
+      "addShortcut": "添加快捷键",
+      "editShortcut": "编辑快捷键",
+      "clearShortcut": "清除快捷键",
+      "noShortcut": "未配置快捷键",
+      "recordShortcutDescription": "点击下方的录制按钮，然后按下您想要用作快捷键的组合键。",
+      "pressKeysToRecord": "按键录制中...",
+      "startRecording": "开始录制",
+      "stopRecording": "停止录制"
     },
     "gui": "GUI",
     "voice": {
@@ -2955,6 +3128,15 @@ File: src/common/locales/zh.json
       "title": "启动",
       "emptyTask": "启动时创建新任务",
       "lastTask": "加载上次任务"
+    },
+    "tasks": {
+      "title": "任务",
+      "smartTaskState": "智能任务状态",
+      "smartTaskStateTooltip": "启用后，模型会智能分析代理的响应，将任务分类为'需要更多信息'、'准备实施'或'准备审查'。禁用时，任务状态将始终设置为'准备审查'。",
+      "autoGenerateTaskName": "自动生成任务名称",
+      "autoGenerateTaskNameTooltip": "启用后，模型会根据您的提示生成简洁的任务名称。禁用时，将使用提示的前5个词作为任务名称。",
+      "showTaskStateActions": "显示任务状态操作",
+      "showTaskStateActionsTooltip": "启用后，任务状态操作将显示在消息底部。禁用以隐藏这些操作。"
     },
     "language": "语言",
     "notifications": {
@@ -3198,6 +3380,8 @@ File: src/common/locales/zh.json
     "copy": "复制",
     "copied": "已复制!",
     "interrupted": "被用户中断。",
+    "taskInterrupted": "任务中断",
+    "taskInterruptedDescription": "任务在进行过程中被用户中断。",
     "delete": "删除",
     "redo": "重做",
     "edit": "编辑",
@@ -3205,9 +3389,23 @@ File: src/common/locales/zh.json
     "cancelEdit": "取消编辑",
     "group": "分组",
     "scrollToBottom": "滚动到底部",
+    "previousUserMessage": "上一条用户消息",
+    "nextUserMessage": "下一条用户消息",
     "messageBar": "消息栏",
     "exportNotAvailableWithVirtualized": "使用虚拟化消息渲染时无法导出为图片。请在 设置 -> 常规 -> 消息显示 中更改为标准渲染。",
-    "execute": "执行"
+    "execute": "执行",
+    "resume": "继续",
+    "taskReadyForReview": "任务准备就绪，待审查",
+    "taskTodo": "任务未开始",
+    "taskTodoDescription": "任务尚未开始。点击执行开始。",
+    "markAsDone": "标记为完成",
+    "taskReadyForImplementation": "任务准备就绪，待实施",
+    "taskDone": "任务已完成",
+    "taskDoneArchived": "任务已完成并已归档",
+    "proceed": "继续",
+    "archive": "归档",
+    "unarchive": "取消归档",
+    "confirmDelete": "确认删除"
   },
   "errors": {
     "frozenTitle": "AIDER冻结了?",
@@ -3407,10 +3605,14 @@ File: src/common/locales/zh.json
     "deniedByReason": "用户拒绝: {{reason}}",
     "tasks": {
       "listTasks": "列出任务",
+      "listTasksWithState": "列出状态为 {{state}} 的任务",
       "getTask": "获取任务",
       "getTaskMessage": "获取任务消息",
       "createTask": "创建任务",
       "deleteTask": "删除任务",
+      "execute": "执行",
+      "yes": "是",
+      "no": "否",
       "taskId": "任务ID",
       "messageIndex": "消息索引",
       "prompt": "提示",
@@ -3496,8 +3698,7 @@ File: src/common/locales/zh.json
         "resultLabel": "结果 {{index}}"
       },
       "fetch": {
-        "title": "抓取网页内容",
-        "contentTruncated": "内容已截断。完整内容可在复制中查看。"
+        "title": "抓取网页内容"
       }
     },
     "memory": {
@@ -3505,25 +3706,33 @@ File: src/common/locales/zh.json
       "storingMemory": "正在存储记忆...",
       "retrievingMemories": "正在检索记忆...",
       "deletingMemory": "正在删除记忆...",
+      "updatingMemory": "正在更新记忆...",
       "listingMemories": "正在列出记忆...",
       "memoryStored": "记忆已存储。",
+      "memoryUpdated": "记忆已更新。",
       "memoryDeleted": "记忆已删除。",
       "memoryId": "记忆ID",
       "type": "类型",
       "content": "内容",
+      "newContent": "新内容",
       "query": "查询",
       "limit": "限制",
       "foundMemories": "找到 {{count}} 条记忆。",
       "noMemoriesFound": "未找到相关记忆。",
       "noRelevantMemories": "未找到相关记忆",
       "storedMemoryDetails": "存储的记忆详情",
+      "updatedMemoryDetails": "更新的记忆详情",
       "deletedMemoryDetails": "删除的记忆详情",
       "retrievedMemories": "检索到的记忆",
       "memoryList": "记忆列表",
       "listedMemories": "正在列出记忆。",
       "ofType": "类型为 {{type}}",
       "noMemoriesOfType": "未找到类型为 {{type}} 的记忆",
-      "all": "全部"
+      "all": "全部",
+      "delete": "删除",
+      "memoryNotFound": "未找到",
+      "deleteDialogTitle": "删除记忆",
+      "deleteDialogText": "确定要删除这条记忆吗？"
     },
     "subagents": {
       "groupRunning": "{{name}}: 子代理正在工作...",
@@ -3660,6 +3869,7 @@ File: src/common/locales/zh.json
     "think-tokens": "设置思考令牌预算（支持 8096、8k、10.5k、0.5M 等格式）",
     "tokens": "报告当前聊天上下文使用的令牌数量",
     "undo": "撤消 Aider 完成的最后一次 git 提交",
+    "task-info": "显示任务信息",
     "web": "抓取网页内容并保存到文件。使用 /web url [文件] 格式，其中 [文件] 为可选参数"
   },
   "telemetry": {
@@ -3779,11 +3989,12 @@ File: src/common/locales/zh.json
     "deleteConfirm": "您确定要删除这个任务吗？",
     "createTask": "创建新任务",
     "rename": "重命名",
+    "pinTask": "固定任务",
+    "unpinTask": "取消固定任务",
     "taskNamePlaceholder": "输入任务名称...",
     "untitled": "[未命名]",
     "exportAsMarkdown": "导出为 Markdown",
     "exportAsImage": "导出为图片",
-    "copyTaskId": "复制任务 ID",
     "taskIdCopied": "任务 ID {{taskId}} 已复制到剪贴板",
     "duplicateTask": "复制任务",
     "search": "搜索任务",
@@ -3801,7 +4012,32 @@ File: src/common/locales/zh.json
     "unarchiveSelected": "取消归档选中项",
     "deleteSelectedConfirm": "您确定要删除 {{count}} 个选中的任务吗？",
     "archiveSelectedConfirm": "您确定要归档 {{count}} 个选中的任务吗？",
-    "unarchiveSelectedConfirm": "您确定要取消归档 {{count}} 个选中的任务吗？"
+    "unarchiveSelectedConfirm": "您确定要取消归档 {{count}} 个选中的任务吗？",
+    "generatingName": "正在生成名称..."
+  },
+  "taskInfo": {
+    "createdAt": "创建于",
+    "updatedAt": "更新于",
+    "worktreeDirectory": "工作树目录",
+    "baseBranch": "基础分支",
+    "baseCommit": "基础提交",
+    "targetBranch": "目标分支",
+    "lastMergeState": "最后合并状态",
+    "beforeMergeCommit": "合并前提交",
+    "mergeTimestamp": "合并时间戳",
+    "openFolder": "在文件夹中打开",
+    "taskId": "任务 ID",
+    "state": "状态",
+    "messageCount": "消息数量"
+  },
+  "taskState": {
+    "TODO": "待办",
+    "IN_PROGRESS": "进行中",
+    "INTERRUPTED": "已中断",
+    "MORE_INFO_NEEDED": "需要更多信息",
+    "READY_FOR_REVIEW": "待审核",
+    "READY_FOR_IMPLEMENTATION": "待实现",
+    "DONE": "已完成"
   },
   "worktree": {
     "aheadCommits": "↑ {{count}} 次提交",
@@ -3905,6 +4141,7 @@ import {
   MEMORY_TOOL_LIST,
   MEMORY_TOOL_RETRIEVE,
   MEMORY_TOOL_STORE,
+  MEMORY_TOOL_UPDATE,
 } from '@common/tools';
 ⋮----
 export type LlmProviderName =
@@ -3923,6 +4160,7 @@ export type LlmProviderName =
   | 'openai-compatible'
   | 'openrouter'
   | 'requesty'
+  | 'synthetic'
   | 'vertex-ai'
   | 'zai-plan';
 ⋮----
@@ -4096,6 +4334,12 @@ export interface MinimaxProvider extends LlmProviderBase {
 }
 export const isMinimaxProvider = (provider: LlmProviderBase): provider is MinimaxProvider
 ⋮----
+export interface SyntheticProvider extends LlmProviderBase {
+  name: 'synthetic';
+  apiKey: string;
+}
+export const isSyntheticProvider = (provider: LlmProviderBase): provider is SyntheticProvider
+⋮----
 export type LlmProvider =
   | OpenAiProvider
   | AnthropicProvider
@@ -4112,6 +4356,7 @@ export type LlmProvider =
   | OllamaProvider
   | OpenRouterProvider
   | RequestyProvider
+  | SyntheticProvider
   | ZaiPlanProvider
   | MinimaxProvider;
 ⋮----
@@ -4214,6 +4459,7 @@ export interface ApplicationAPI {
   runPrompt: (baseDir: string, taskId: string, prompt: string, mode?: Mode) => void;
   savePrompt: (baseDir: string, taskId: string, prompt: string) => Promise<void>;
   redoLastUserPrompt: (baseDir: string, taskId: string, mode: Mode, updatedPrompt?: string) => void;
+  resumeTask: (baseDir: string, taskId: string) => void;
   answerQuestion: (baseDir: string, taskId: string, answer: string) => void;
   loadInputHistory: (baseDir: string) => Promise<string[]>;
   isOpenDialogSupported: () => boolean;
@@ -4360,6 +4606,10 @@ export interface ApplicationAPI {
   deleteMemory: (id: string) => Promise<boolean>;
   deleteProjectMemories: (projectId: string) => Promise<number>;
   getMemoryEmbeddingProgress: () => Promise<MemoryEmbeddingProgress>;
+
+  // Clipboard operations
+  writeToClipboard: (text: string) => Promise<void>;
+  openPath: (path: string) => Promise<boolean>;
 }
 ⋮----
 // Todo operations
@@ -4375,6 +4625,8 @@ export interface ApplicationAPI {
 // Agent profile operations
 ⋮----
 // Memory operations
+⋮----
+// Clipboard operations
 
 ================
 File: src/common/tools.ts
@@ -4399,6 +4651,7 @@ import {
   OpenRouterProvider,
   RequestyProvider,
   VertexAiProvider,
+  SyntheticProvider,
 } from '@common/agent';
 import { z } from 'zod';
 ⋮----
@@ -4548,6 +4801,7 @@ export interface ToolData {
   response?: string;
   usageReport?: UsageReportData;
   promptContext?: PromptContext;
+  finished?: boolean;
 }
 ⋮----
 export interface ContextFilesUpdatedData {
@@ -4797,8 +5051,52 @@ export type Theme = (typeof THEMES)[number];
 ⋮----
 export type Font = (typeof FONTS)[number];
 ⋮----
+export interface HotkeyConfig {
+  projectHotkeys: {
+    closeProject: string;
+    newProject: string;
+    usageDashboard: string;
+    modelLibrary: string;
+    settings: string;
+    cycleNextProject: string;
+    cyclePrevProject: string;
+    switchProject1: string;
+    switchProject2: string;
+    switchProject3: string;
+    switchProject4: string;
+    switchProject5: string;
+    switchProject6: string;
+    switchProject7: string;
+    switchProject8: string;
+    switchProject9: string;
+  };
+  taskHotkeys: {
+    switchTask1: string;
+    switchTask2: string;
+    switchTask3: string;
+    switchTask4: string;
+    switchTask5: string;
+    switchTask6: string;
+    switchTask7: string;
+    switchTask8: string;
+    switchTask9: string;
+    focusPrompt: string;
+    newTask: string;
+    closeTask: string;
+  };
+  dialogHotkeys: {
+    browseFolder: string;
+  };
+}
+⋮----
 export enum MemoryEmbeddingProvider {
   SentenceTransformers = 'sentence-transformers',
+}
+⋮----
+export interface TaskSettings {
+  smartTaskState: boolean;
+  autoGenerateTaskName: boolean;
+  showTaskStateActions: boolean;
 }
 ⋮----
 export interface MemoryConfig {
@@ -4863,6 +5161,7 @@ export interface SettingsData {
     'openai-compatible'?: OpenAiCompatibleProvider;
     openrouter?: OpenRouterProvider;
     requesty?: RequestyProvider;
+    synthetic?: SyntheticProvider;
     'vertex-ai'?: VertexAiProvider;
   };
   telemetryEnabled: boolean;
@@ -4877,6 +5176,8 @@ export interface SettingsData {
     };
   };
   memory: MemoryConfig;
+  taskSettings: TaskSettings;
+  hotkeyConfig?: HotkeyConfig;
 }
 ⋮----
 export interface ProviderProfile {
@@ -4884,6 +5185,7 @@ export interface ProviderProfile {
   name?: string;
   provider: LlmProvider;
   headers?: Record<string, string>;
+  disabled?: boolean;
 }
 ⋮----
 export interface ProvidersUpdatedData {
@@ -5042,6 +5344,16 @@ export type WorkingMode = z.infer<typeof WorkingModeSchema>;
 ⋮----
 export type TaskData = z.infer<typeof TaskDataSchema>;
 ⋮----
+export enum DefaultTaskState {
+  Todo = 'TODO',
+  InProgress = 'IN_PROGRESS',
+  Interrupted = 'INTERRUPTED',
+  MoreInfoNeeded = 'MORE_INFO_NEEDED',
+  ReadyForReview = 'READY_FOR_REVIEW',
+  ReadyForImplementation = 'READY_FOR_IMPLEMENTATION',
+  Done = 'DONE',
+}
+⋮----
 export interface TodoItem {
   name: string;
   completed: boolean;
@@ -5134,13 +5446,6 @@ export interface BranchInfo {
   name: string;
   isCurrent: boolean;
   hasWorktree: boolean;
-}
-⋮----
-export interface Test {
-  name: string;
-  description: string;
-  status: 'todo' | 'in_progress' | 'done';
-  message: string;
 }
 
 ================
@@ -5272,128 +5577,6 @@ import logger from '@/logger';
 // a prefix of "searchedText". We go from the end of text inward.
 
 ================
-File: src/main/agent/templates/compiler/template-compiler.ts
-================
-import fs from 'fs/promises';
-import path from 'path';
-⋮----
-import Handlebars from 'handlebars';
-⋮----
-import { registerAllHelpers } from '../helpers';
-⋮----
-import { RESOURCES_DIR } from '@/constants';
-import logger from '@/logger';
-⋮----
-export class TemplateCompiler
-⋮----
-constructor(templatesDir: string = path.join(RESOURCES_DIR, 'prompts'))
-⋮----
-async compileAll(): Promise<void>
-⋮----
-render(name: string, data: unknown): string
-
-================
-File: src/main/agent/templates/helpers/conditional.ts
-================
-import Handlebars from 'handlebars';
-import { ToolApprovalState } from '@common/types';
-⋮----
-export const registerConditionalHelpers = (): void =>
-
-================
-File: src/main/agent/templates/helpers/formatting.ts
-================
-import Handlebars from 'handlebars';
-⋮----
-export const registerFormattingHelpers = (): void =>
-
-================
-File: src/main/agent/templates/helpers/index.ts
-================
-import { registerConditionalHelpers } from './conditional';
-import { registerFormattingHelpers } from './formatting';
-⋮----
-export const registerAllHelpers = (): void =>
-
-================
-File: src/main/agent/templates/types.ts
-================
-import { AgentProfile } from '@common/types';
-⋮----
-export interface ToolPermissions {
-  aiderTools: boolean;
-  powerTools: {
-    semanticSearch: boolean;
-    fileRead: boolean;
-    fileWrite: boolean;
-    fileEdit: boolean;
-    glob: boolean;
-    grep: boolean;
-    bash: boolean;
-    anyEnabled: boolean;
-  };
-  todoTools: boolean;
-  subagents: boolean;
-  memory: {
-    enabled: boolean;
-    retrieveAllowed: boolean;
-    storeAllowed: boolean;
-    listAllowed: boolean;
-    deleteAllowed: boolean;
-  };
-  skills: {
-    allowed: boolean;
-  };
-  autoApprove: boolean;
-}
-⋮----
-export interface SystemPromptData {
-  projectDir: string;
-  taskDir: string;
-  agentProfile: AgentProfile;
-  additionalInstructions?: string;
-  osName: string;
-  currentDate: string;
-  rulesFiles: string;
-  customInstructions: string;
-  toolPermissions: ToolPermissions;
-  toolConstants: Record<string, string>;
-  workflow: string;
-  projectGitRootDirectory?: string;
-}
-⋮----
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface InitProjectPromptData {
-  // Static for now
-}
-⋮----
-// Static for now
-⋮----
-export interface CompactConversationPromptData {
-  customInstructions?: string;
-}
-⋮----
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface CommitMessagePromptData {
-  // Static for now
-}
-⋮----
-// Static for now
-⋮----
-export interface ConflictResolutionSystemPromptData {
-  POWER_TOOL_GROUP_NAME: string;
-  TOOL_GROUP_NAME_SEPARATOR: string;
-  POWER_TOOL_FILE_EDIT: string;
-}
-⋮----
-export interface ConflictResolutionPromptData {
-  filePath: string;
-  basePath?: string;
-  oursPath?: string;
-  theirsPath?: string;
-}
-
-================
 File: src/main/agent/tools/aider.ts
 ================
 import fs from 'fs/promises';
@@ -5487,6 +5670,7 @@ import {
   MEMORY_TOOL_LIST as TOOL_LIST,
   MEMORY_TOOL_RETRIEVE as TOOL_RETRIEVE,
   MEMORY_TOOL_STORE as TOOL_STORE,
+  MEMORY_TOOL_UPDATE as TOOL_UPDATE,
   MEMORY_TOOL_GROUP_NAME as TOOL_GROUP_NAME,
   TOOL_GROUP_NAME_SEPARATOR,
 } from '@common/tools';
@@ -5503,6 +5687,8 @@ export const createMemoryToolset = (task: Task, profile: AgentProfile, memoryMan
 ⋮----
 // Filter by project and type if specified
 ⋮----
+// Get the memory to show its content in the approval question
+⋮----
 // Filter out tools that are set to Never in toolApprovals
 
 ================
@@ -5510,8 +5696,7 @@ File: src/main/agent/tools/power.ts
 ================
 import fs from 'fs/promises';
 import path from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 ⋮----
 import { tool, type ToolSet } from 'ai';
 import { z } from 'zod';
@@ -5572,11 +5757,33 @@ absolute: false, // Keep paths relative to cwd for easier processing
 ⋮----
 const searchRegex = new RegExp(searchTerm, caseSensitive ? undefined : 'i'); // Simpler for line-by-line test
 ⋮----
+false, // not finished yet
+⋮----
 // Pattern validation
 ⋮----
 // Check denied patterns first
 ⋮----
 // Check allowed patterns - if matches, skip approval and execute directly
+⋮----
+const cleanup = () =>
+⋮----
+const resolveWithResult = () =>
+⋮----
+const abortListener = () =>
+⋮----
+// Listen for abort signal
+⋮----
+// Set timeout
+⋮----
+// Send streaming update
+⋮----
+false, // not finished yet
+⋮----
+// Send streaming update
+⋮----
+false, // not finished yet
+⋮----
+exitCode = 124; // Timeout exit code
 ⋮----
 // Use parameter maxTokens if provided, otherwise use the default
 ⋮----
@@ -5644,7 +5851,7 @@ import { AgentProfileManager } from '@/agent/agent-profile-manager';
 import { Task } from '@/task';
 import logger from '@/logger';
 ⋮----
-const getSubagentId = (subagent: AgentProfile): string =>
+export const getSubagentId = (subagent: AgentProfile): string =>
 ⋮----
 export const createSubagentsToolset = async (
   _settings: SettingsData,
@@ -5697,7 +5904,7 @@ import {
   TASKS_TOOL_LIST_TASKS,
   TOOL_GROUP_NAME_SEPARATOR,
 } from '@common/tools';
-import { AgentProfile, MessageRole, PromptContext, TaskData, ToolApprovalState } from '@common/types';
+import { AgentProfile, PromptContext, TaskData, ToolApprovalState } from '@common/types';
 ⋮----
 import { ApprovalManager } from './approval-manager';
 ⋮----
@@ -5705,20 +5912,18 @@ import { Task } from '@/task';
 ⋮----
 export const createTasksToolset = (task: Task, profile: AgentProfile, promptContext?: PromptContext): ToolSet =>
 ⋮----
+// Filter by state if provided
+⋮----
 // Apply pagination
 ⋮----
 // Handle negative indexing
 ⋮----
 actualIndex = contextMessages.length + messageIndex; // e.g., -1 becomes length-1
 ⋮----
-// Set initial task data
-⋮----
 // Parse modelId to extract provider and model
 ⋮----
 // createNewTask returns TaskData, not Task instance
 // We need to get the actual Task instance to call methods on it
-⋮----
-// Add the initial prompt as a user message
 ⋮----
 // Prevent deleting the current task
 
@@ -5755,6 +5960,7 @@ import { FSWatcher, watch } from 'chokidar';
 import debounce from 'lodash/debounce';
 import { DEFAULT_AGENT_PROFILE, DEFAULT_AGENT_PROFILES } from '@common/agent';
 import { fileExists } from '@common/utils';
+import { v4 as uuidv4 } from 'uuid';
 ⋮----
 import type { AgentProfile } from '@common/types';
 ⋮----
@@ -5879,7 +6085,11 @@ order: 0, // Will be set by order file
 ⋮----
 // Add profiles to the main profiles map
 ⋮----
+private sanitizeAgentProfile(loadedProfile: AgentProfile, agentDirName: string): AgentProfile
+⋮----
 private async loadProfileFile(filePath: string, dirName: string): Promise<AgentProfile | null>
+⋮----
+// Sanitize profile with defaults
 ⋮----
 // Discover and load rule files for this profile
 ⋮----
@@ -6011,22 +6221,22 @@ import { Client as McpSdkClient } from '@modelcontextprotocol/sdk/client/index.j
 // @ts-expect-error istextorbinary is not typed properly
 import { isBinary } from 'istextorbinary';
 import { fileTypeFromBuffer } from 'file-type';
-import { TOOL_GROUP_NAME_SEPARATOR } from '@common/tools';
+import { HELPERS_TOOL_GROUP_NAME, TOOL_GROUP_NAME_SEPARATOR } from '@common/tools';
 ⋮----
 import { createPowerToolset } from './tools/power';
 import { createTodoToolset } from './tools/todo';
 import { createTasksToolset } from './tools/tasks';
-import { getSystemPrompt } from './prompts';
 import { createAiderToolset } from './tools/aider';
 import { createHelpersToolset } from './tools/helpers';
 import { createMemoryToolset } from './tools/memory';
 import { createSkillsToolset } from './tools/skills';
 import { MCP_CLIENT_TIMEOUT, McpManager } from './mcp-manager';
 import { ApprovalManager } from './tools/approval-manager';
-import { ANSWER_RESPONSE_START_TAG, extractPromptContextFromToolResult, THINKING_RESPONSE_STAR_TAG } from './utils';
+import { ANSWER_RESPONSE_START_TAG, extractPromptContextFromToolResult, findLastUserMessage, THINKING_RESPONSE_STAR_TAG } from './utils';
 import { extractReasoningMiddleware } from './middlewares/extract-reasoning-middleware';
 ⋮----
 import { MemoryManager } from '@/memory/memory-manager';
+import { PromptsManager } from '@/prompts';
 import { AIDER_DESK_PROJECT_RULES_DIR } from '@/constants';
 import { Task } from '@/task';
 import { Store } from '@/store';
@@ -6137,7 +6347,7 @@ private fixInputSchema(provider: LlmProviderName, inputSchema: McpToolInputSchem
 async runAgent(
     task: Task,
     profile: AgentProfile,
-    prompt: string,
+    prompt: string | null,
     promptContext?: PromptContext,
     initialContextMessages?: ContextMessage[],
     initialContextFiles?: ContextFile[],
@@ -6171,9 +6381,11 @@ error: error.message, // Pass the validation error message
 ⋮----
 : null; // Return null if the LLM couldn't repair the call
 ⋮----
-const onStepFinish = async (stepResult: StepResult<typeof toolSet>) =>
-⋮----
 // Get the model to use its temperature and max output tokens settings
+⋮----
+const getBaseModelCallParams = () =>
+⋮----
+const onStepFinish = async (stepResult: StepResult<typeof toolSet>) =>
 ⋮----
 // @ts-expect-error checking keys in error
 ⋮----
@@ -6186,6 +6398,8 @@ const onStepFinish = async (stepResult: StepResult<typeof toolSet>) =>
 // Clean up abort controller only if we created it
 ⋮----
 // Always send a final "finished" message, regardless of whether there was text or tools
+⋮----
+private filterResultMessages(resultMessages: ContextMessage[])
 ⋮----
 private async prepareMessages(task: Task, profile: AgentProfile, contextMessages: ModelMessage[], contextFiles: ContextFile[]): Promise<ModelMessage[]>
 ⋮----
@@ -6232,6 +6446,8 @@ text: text?.substring(0, 100), // Log truncated text
 // Process successful tool results *after* sending text/reasoning and handling errors
 ⋮----
 // Update the existing tool message with the result
+⋮----
+i === toolResults.length - 1 ? usageReport : undefined, // Only add usage report to the last tool message
 ⋮----
 // @ts-expect-error the id is there
 ⋮----
@@ -6343,7 +6559,7 @@ private compareServerConfig(config: McpServerConfig, otherConfig: McpServerConfi
 ================
 File: src/main/agent/optimizer.ts
 ================
-import { type AgentProfile, InvocationMode, type TaskData, ToolApprovalState } from '@common/types';
+import { type AgentProfile, InvocationMode, ToolApprovalState } from '@common/types';
 import { isSubagentEnabled } from '@common/agent';
 import { cloneDeep } from 'lodash';
 import { type ModelMessage, type ToolContent, type ToolResultPart, type UserModelMessage } from 'ai';
@@ -6363,28 +6579,32 @@ import { extractTextContent } from '@common/utils';
 ⋮----
 import logger from '@/logger';
 import { type CacheControl } from '@/models';
+import { Task } from '@/task';
+import { getSubagentId } from '@/agent/tools/subagents';
 ⋮----
 /**
  * Optimizes the messages before sending them to the LLM. This should reduce the token count and improve the performance.
  */
 export const optimizeMessages = (
+  task: Task,
   profile: AgentProfile,
   projectProfiles: AgentProfile[],
   userRequestMessageIndex: number,
   messages: ModelMessage[],
   cacheControl: CacheControl | undefined,
-  task?: TaskData,
 ) =>
 ⋮----
 const addImportantReminders = (
+  task: Task,
   profile: AgentProfile,
   projectProfiles: AgentProfile[],
   userRequestMessageIndex: number,
   messages: ModelMessage[],
-  task?: TaskData,
 ): ModelMessage[] =>
 ⋮----
 // Add reminder about automatic subagents
+⋮----
+// Add reminder about worktree mode
 ⋮----
 /**
  * For run_prompt tool, which returns `responses` array, we should replace this array with empty array.
@@ -6449,99 +6669,9 @@ const newMessages = [...messages]; // Create a mutable copy
 // Since we've processed a block of 4, we can safely jump ahead.
 
 ================
-File: src/main/agent/prompts.ts
-================
-import path from 'path';
-import fs from 'fs';
-import fsPromises from 'fs/promises';
-⋮----
-import { AgentProfile, SettingsData, ToolApprovalState, ConflictResolutionFileContext } from '@common/types';
-import {
-  AIDER_TOOL_ADD_CONTEXT_FILES,
-  AIDER_TOOL_DROP_CONTEXT_FILES,
-  AIDER_TOOL_GET_CONTEXT_FILES,
-  AIDER_TOOL_GROUP_NAME,
-  AIDER_TOOL_RUN_PROMPT,
-  POWER_TOOL_BASH,
-  POWER_TOOL_FILE_EDIT,
-  POWER_TOOL_FILE_READ,
-  POWER_TOOL_FILE_WRITE,
-  POWER_TOOL_GLOB,
-  POWER_TOOL_GREP,
-  POWER_TOOL_GROUP_NAME,
-  POWER_TOOL_SEMANTIC_SEARCH,
-  SUBAGENTS_TOOL_GROUP_NAME,
-  SUBAGENTS_TOOL_RUN_TASK,
-  TODO_TOOL_CLEAR_ITEMS,
-  TODO_TOOL_GET_ITEMS,
-  TODO_TOOL_GROUP_NAME,
-  TODO_TOOL_SET_ITEMS,
-  TODO_TOOL_UPDATE_ITEM_COMPLETION,
-  TOOL_GROUP_NAME_SEPARATOR,
-  MEMORY_TOOL_DELETE,
-  MEMORY_TOOL_GROUP_NAME,
-  MEMORY_TOOL_LIST,
-  MEMORY_TOOL_RETRIEVE,
-  MEMORY_TOOL_STORE,
-  SKILLS_TOOL_ACTIVATE_SKILL,
-  SKILLS_TOOL_GROUP_NAME,
-} from '@common/tools';
-⋮----
-import { TemplateCompiler } from './templates/compiler/template-compiler';
-import {
-  SystemPromptData,
-  InitProjectPromptData,
-  CompactConversationPromptData,
-  CommitMessagePromptData,
-  ConflictResolutionSystemPromptData,
-  ConflictResolutionPromptData,
-  ToolPermissions,
-} from './templates/types';
-⋮----
-import logger from '@/logger';
-import { Task } from '@/task';
-⋮----
-export const initializeTemplates = async (): Promise<void> =>
-⋮----
-const calculateToolPermissions = (settings: SettingsData, agentProfile: AgentProfile, autoApprove: boolean): ToolPermissions =>
-⋮----
-const isAllowed = (tool: string) => agentProfile.toolApprovals[`$
-⋮----
-anyEnabled: false, // Will be set below
-⋮----
-export const getSystemPrompt = async (
-  settings: SettingsData,
-  task: Task,
-  agentProfile: AgentProfile,
-  autoApprove = task.task.autoApprove ?? false,
-  additionalInstructions?: string,
-) =>
-⋮----
-workflow: '', // Placeholder
-⋮----
-const getRulesContent = async (task: Task, agentProfile?: AgentProfile) =>
-⋮----
-export const getInitProjectPrompt = () =>
-⋮----
-export const getCompactConversationPrompt = (customInstructions?: string) =>
-⋮----
-export const getGenerateCommitMessagePrompt = () =>
-⋮----
-export const getConflictResolutionSystemPrompt = () =>
-⋮----
-export const getConflictResolutionPrompt = (
-  filePath: string,
-  ctx: ConflictResolutionFileContext & {
-    basePath?: string;
-    oursPath?: string;
-    theirsPath?: string;
-  },
-) =>
-
-================
 File: src/main/agent/utils.ts
 ================
-import { PromptContext } from '@common/types';
+import { ContextMessage, ContextUserMessage, MessageRole, PromptContext } from '@common/types';
 ⋮----
 /**
  * Extracts PromptContext from a tool result if available.
@@ -6549,6 +6679,8 @@ import { PromptContext } from '@common/types';
  * @returns PromptContext if found, undefined otherwise
  */
 export const extractPromptContextFromToolResult = (toolResult: unknown): PromptContext | undefined =>
+⋮----
+export const findLastUserMessage = (messages: ContextMessage[]): ContextUserMessage | undefined =>
 
 ================
 File: src/main/connector/connector-manager.ts
@@ -7053,9 +7185,9 @@ export interface HookEventMap {
   onTaskInitialized: { task: TaskData };
   onTaskClosed: { task: TaskData };
   onPromptSubmitted: { prompt: string; mode: Mode };
-  onPromptStarted: { prompt: string; mode: Mode };
+  onPromptStarted: { prompt: string | null; mode: Mode };
   onPromptFinished: { responses: ResponseCompletedData[] };
-  onAgentStarted: { prompt: string };
+  onAgentStarted: { prompt: string | null };
   onAgentFinished: { resultMessages: unknown[] };
   onAgentStepFinished: { stepResult: unknown };
   onToolCalled: { toolName: string; args: Record<string, unknown> | undefined };
@@ -7193,6 +7325,10 @@ return []; // No memories exist yet
 async getMemory(id: string): Promise<MemoryEntry | null>
 ⋮----
 async deleteMemory(id: string): Promise<boolean>
+⋮----
+async updateMemory(id: string, content: string): Promise<boolean>
+⋮----
+// Check if memory exists
 ⋮----
 async getAllMemories(): Promise<MemoryEntry[]>
 ⋮----
@@ -8081,6 +8217,31 @@ export const getRequestyCacheControl = (profile: AgentProfile, llmProvider: LlmP
 // Configuration helpers
 
 ================
+File: src/main/models/providers/synthetic.ts
+================
+import { Model, ModelInfo, ProviderProfile, SettingsData } from '@common/types';
+import { DEFAULT_MODEL_TEMPERATURE, isSyntheticProvider, SyntheticProvider } from '@common/agent';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+⋮----
+import { getDefaultUsageReport } from './default';
+⋮----
+import type { LanguageModelV2 } from '@ai-sdk/provider';
+⋮----
+import { AiderModelMapping, LlmProviderStrategy, LoadModelsResponse } from '@/models';
+import logger from '@/logger';
+import { getEffectiveEnvironmentVariable } from '@/utils';
+⋮----
+const loadSyntheticModels = async (profile: ProviderProfile, settings: SettingsData): Promise<LoadModelsResponse> =>
+⋮----
+const hasSyntheticEnvVars = (): boolean
+⋮----
+const getSyntheticAiderMapping = (provider: ProviderProfile, modelId: string, settings: SettingsData, projectDir: string): AiderModelMapping =>
+⋮----
+const createSyntheticLlm = (profile: ProviderProfile, model: Model, settings: SettingsData, projectDir: string): LanguageModelV2 =>
+⋮----
+const getSyntheticModelInfo = (_provider: ProviderProfile, modelId: string, allModelInfos: Record<string, ModelInfo>): ModelInfo | undefined =>
+
+================
 File: src/main/models/providers/vertex-ai.ts
 ================
 import { v1beta1 } from '@google-cloud/aiplatform';
@@ -8160,25 +8321,23 @@ const getVertexAiModelInfo = (_provider: ProviderProfile, modelId: string, allMo
 ================
 File: src/main/models/providers/zai-plan.ts
 ================
-import { Model, ModelInfo, ProviderProfile, SettingsData, UsageReportData } from '@common/types';
+import { Model, ModelInfo, ProviderProfile, SettingsData } from '@common/types';
 import { isZaiPlanProvider, ZaiPlanProvider } from '@common/agent';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 ⋮----
-import { calculateCost, getDefaultUsageReport } from './default';
+import { getDefaultUsageReport } from './default';
 ⋮----
 import type { LanguageModelV2 } from '@ai-sdk/provider';
-import type { LanguageModelUsage } from 'ai';
 ⋮----
 import { AiderModelMapping, LlmProviderStrategy, LoadModelsResponse } from '@/models';
 import logger from '@/logger';
 import { getEffectiveEnvironmentVariable } from '@/utils';
-import { Task } from '@/task';
 ⋮----
 const loadZaiPlanModels = async (profile: ProviderProfile, settings: SettingsData): Promise<LoadModelsResponse> =>
 ⋮----
 // ZAI uses specific endpoint for model discovery
 ⋮----
-temperature: 0.1, // Default temperature for ZAI models
+temperature: 0.7, // Default temperature for ZAI models
 ⋮----
 const hasZaiPlanEnvVars = (): boolean
 ⋮----
@@ -8193,8 +8352,6 @@ const createZaiPlanLlm = (profile: ProviderProfile, model: Model, settings: Sett
 ⋮----
 // Use createOpenAICompatible to get a provider instance, then get the model
 // ZAI uses specific base URL for chat completions
-⋮----
-export const getZaiPlanUsageReport = (task: Task, provider: ProviderProfile, model: Model, usage: LanguageModelUsage): UsageReportData =>
 ⋮----
 const getZaiPlanModelInfo = (_provider: ProviderProfile, modelId: string, allModelInfos: Record<string, ModelInfo>): ModelInfo | undefined =>
 ⋮----
@@ -8243,6 +8400,7 @@ import { openaiProviderStrategy } from './providers/openai';
 import { openaiCompatibleProviderStrategy } from './providers/openai-compatible';
 import { openrouterProviderStrategy } from './providers/openrouter';
 import { requestyProviderStrategy } from './providers/requesty';
+import { syntheticProviderStrategy } from './providers/synthetic';
 import { vertexAiProviderStrategy } from './providers/vertex-ai';
 import { zaiPlanProviderStrategy } from './providers/zai-plan';
 ⋮----
@@ -8321,6 +8479,8 @@ private async loadProviderModels(providers: ProviderProfile[]): Promise<void>
 const loadModels = async () =>
 ⋮----
 // Load models from each profile for this provider type
+⋮----
+// Skip disabled providers
 ⋮----
 // Emit the updated provider models event
 ⋮----
@@ -8423,6 +8583,7 @@ export type LlmProviderName =
   | 'openai-compatible'
   | 'openrouter'
   | 'requesty'
+  | 'synthetic'
   | 'vertex-ai'
   | 'zai-plan';
 ⋮----
@@ -8649,6 +8810,7 @@ import { ModelManager } from '@/models';
 import { WorktreeManager } from '@/worktrees';
 import { MemoryManager } from '@/memory/memory-manager';
 import { HookManager } from '@/hooks/hook-manager';
+import { PromptsManager } from '@/prompts';
 ⋮----
 export class ProjectManager
 ⋮----
@@ -8663,6 +8825,7 @@ constructor(
     private readonly agentProfileManager: AgentProfileManager,
     private readonly memoryManager: MemoryManager,
     private readonly hookManager: HookManager,
+    private readonly promptsManager: PromptsManager,
 )
 ⋮----
 private findProject(baseDir: string): Project | undefined
@@ -8713,6 +8876,7 @@ import { migrateSessionsToTasks } from '@/project/migrations';
 import { WorktreeManager } from '@/worktrees';
 import { MemoryManager } from '@/memory/memory-manager';
 import { HookManager } from '@/hooks/hook-manager';
+import { PromptsManager } from '@/prompts';
 import { AIDER_DESK_WATCH_FILES_LOCK } from '@/constants';
 import { determineMainModel, determineWeakModel } from '@/utils';
 ⋮----
@@ -8730,6 +8894,7 @@ constructor(
     private readonly agentProfileManager: AgentProfileManager,
     private readonly memoryManager: MemoryManager,
     private readonly hookManager: HookManager,
+    private readonly promptsManager: PromptsManager,
 )
 ⋮----
 // initialize global task
@@ -8789,6 +8954,235 @@ async close()
 // Remove watch-files lock file if it exists
 ⋮----
 // Ignore error if file doesn't exist
+
+================
+File: src/main/prompts/helpers/conditional.ts
+================
+import Handlebars from 'handlebars';
+import { ToolApprovalState } from '@common/types';
+⋮----
+export const registerConditionalHelpers = (): void =>
+
+================
+File: src/main/prompts/helpers/formatting.ts
+================
+import Handlebars from 'handlebars';
+⋮----
+export const registerFormattingHelpers = (): void =>
+
+================
+File: src/main/prompts/helpers/index.ts
+================
+import { registerConditionalHelpers } from './conditional';
+import { registerFormattingHelpers } from './formatting';
+⋮----
+export const registerAllHelpers = (): void =>
+
+================
+File: src/main/prompts/index.ts
+================
+
+
+================
+File: src/main/prompts/prompts-manager.ts
+================
+import fs from 'fs/promises';
+import path from 'path';
+⋮----
+import Handlebars from 'handlebars';
+import { FSWatcher, watch } from 'chokidar';
+import debounce from 'lodash/debounce';
+import { AgentProfile, ConflictResolutionFileContext, SettingsData, ToolApprovalState } from '@common/types';
+import {
+  AIDER_TOOL_ADD_CONTEXT_FILES,
+  AIDER_TOOL_DROP_CONTEXT_FILES,
+  AIDER_TOOL_GET_CONTEXT_FILES,
+  AIDER_TOOL_GROUP_NAME,
+  AIDER_TOOL_RUN_PROMPT,
+  HELPERS_TOOL_GROUP_NAME,
+  MEMORY_TOOL_DELETE,
+  MEMORY_TOOL_GROUP_NAME,
+  MEMORY_TOOL_LIST,
+  MEMORY_TOOL_RETRIEVE,
+  MEMORY_TOOL_STORE,
+  POWER_TOOL_BASH,
+  POWER_TOOL_FILE_EDIT,
+  POWER_TOOL_FILE_READ,
+  POWER_TOOL_FILE_WRITE,
+  POWER_TOOL_GLOB,
+  POWER_TOOL_GREP,
+  POWER_TOOL_GROUP_NAME,
+  POWER_TOOL_SEMANTIC_SEARCH,
+  SKILLS_TOOL_ACTIVATE_SKILL,
+  SKILLS_TOOL_GROUP_NAME,
+  SUBAGENTS_TOOL_GROUP_NAME,
+  SUBAGENTS_TOOL_RUN_TASK,
+  TODO_TOOL_CLEAR_ITEMS,
+  TODO_TOOL_GET_ITEMS,
+  TODO_TOOL_GROUP_NAME,
+  TODO_TOOL_SET_ITEMS,
+  TODO_TOOL_UPDATE_ITEM_COMPLETION,
+  TOOL_GROUP_NAME_SEPARATOR,
+} from '@common/tools';
+⋮----
+import { registerAllHelpers } from './helpers';
+import {
+  CommitMessagePromptData,
+  CompactConversationPromptData,
+  ConflictResolutionPromptData,
+  ConflictResolutionSystemPromptData,
+  InitProjectPromptData,
+  PromptTemplateData,
+  PromptTemplateName,
+  TaskNamePromptData,
+  ToolPermissions,
+  UpdateTaskStateData,
+} from './types';
+⋮----
+import { AIDER_DESK_DEFAULT_PROMPTS_DIR, AIDER_DESK_GLOBAL_PROMPTS_DIR, AIDER_DESK_PROMPTS_DIR } from '@/constants';
+import logger from '@/logger';
+import { Task } from '@/task';
+⋮----
+export class PromptsManager
+⋮----
+constructor(
+    private readonly defaultTemplatesDir = AIDER_DESK_DEFAULT_PROMPTS_DIR,
+    private readonly globalPromptsDir = AIDER_DESK_GLOBAL_PROMPTS_DIR,
+)
+⋮----
+public async init(): Promise<void>
+⋮----
+private async compileGlobalTemplates(): Promise<void>
+⋮----
+private async compileProjectTemplates(projectDir: string): Promise<void>
+⋮----
+private getTemplateNames(): PromptTemplateName[]
+⋮----
+private async loadGlobalTemplateSource(name: PromptTemplateName): Promise<string | null>
+⋮----
+// Check global prompts
+⋮----
+// Fall back to default templates from resources
+⋮----
+private async loadProjectTemplateSource(projectPromptsDir: string, name: PromptTemplateName): Promise<string | null>
+⋮----
+// It's fine if project template doesn't exist
+⋮----
+private async setupGlobalWatcher(): Promise<void>
+⋮----
+public async watchProject(projectDir: string): Promise<void>
+⋮----
+public async unwatchProject(projectDir: string): Promise<void>
+⋮----
+public async dispose(): Promise<void>
+⋮----
+private render(name: PromptTemplateName, data: unknown, projectDir?: string): string
+⋮----
+const isAllowed = (tool: string)
+⋮----
+anyEnabled: false, // Will be set below
+⋮----
+workflow: '', // Placeholder
+
+================
+File: src/main/prompts/types.ts
+================
+export interface ToolPermissions {
+  aiderTools: boolean;
+  powerTools: {
+    semanticSearch: boolean;
+    fileRead: boolean;
+    fileWrite: boolean;
+    fileEdit: boolean;
+    glob: boolean;
+    grep: boolean;
+    bash: boolean;
+    anyEnabled: boolean;
+  };
+  todoTools: boolean;
+  subagents: boolean;
+  memory: {
+    enabled: boolean;
+    retrieveAllowed: boolean;
+    storeAllowed: boolean;
+    listAllowed: boolean;
+    deleteAllowed: boolean;
+  };
+  skills: {
+    allowed: boolean;
+  };
+  autoApprove: boolean;
+}
+⋮----
+export interface PromptTemplateData {
+  projectDir: string;
+  taskDir: string;
+  additionalInstructions?: string;
+  osName: string;
+  currentDate: string;
+  rulesFiles: string;
+  customInstructions: string;
+  toolPermissions: ToolPermissions;
+  toolConstants: Record<string, string>;
+  workflow: string;
+  projectGitRootDirectory?: string;
+}
+⋮----
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface InitProjectPromptData {
+  // Static for now
+}
+⋮----
+// Static for now
+⋮----
+export interface CompactConversationPromptData {
+  customInstructions?: string;
+}
+⋮----
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface CommitMessagePromptData {
+  // Static for now
+}
+⋮----
+// Static for now
+⋮----
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface TaskNamePromptData {
+  // Static for now
+}
+⋮----
+// Static for now
+⋮----
+export interface ConflictResolutionSystemPromptData {
+  POWER_TOOL_GROUP_NAME: string;
+  TOOL_GROUP_NAME_SEPARATOR: string;
+  POWER_TOOL_FILE_EDIT: string;
+}
+⋮----
+export interface ConflictResolutionPromptData {
+  filePath: string;
+  basePath?: string;
+  oursPath?: string;
+  theirsPath?: string;
+}
+⋮----
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface UpdateTaskStateData {
+  // Static for now
+}
+⋮----
+// Static for now
+⋮----
+export type PromptTemplateName =
+  | 'system-prompt'
+  | 'init-project'
+  | 'workflow'
+  | 'compact-conversation'
+  | 'commit-message'
+  | 'task-name'
+  | 'conflict-resolution'
+  | 'conflict-resolution-system'
+  | 'update-task-state';
 
 ================
 File: src/main/server/rest-api/agent-api.ts
@@ -8969,6 +9363,8 @@ registerRoutes(router: Router): void
 ⋮----
 // Redo last user prompt
 ⋮----
+// Resume task
+⋮----
 // Validate path
 ⋮----
 // Is project path
@@ -9072,10 +9468,6 @@ export class PromptApi extends BaseApi
 constructor(private readonly eventsHandler: EventsHandler)
 ⋮----
 registerRoutes(router: Router): void
-⋮----
-// Check if another prompt is already running
-⋮----
-// Clear the running flag even if there's an error
 
 ================
 File: src/main/server/rest-api/providers-api.ts
@@ -9104,6 +9496,10 @@ registerRoutes(router: Router): void
 // Get provider models
 ⋮----
 // Bulk update models
+⋮----
+// Upsert a single model
+⋮----
+// Delete a model
 
 ================
 File: src/main/server/rest-api/settings-api.ts
@@ -9963,6 +10359,7 @@ import {
   ContextAssistantMessage,
   ContextFile,
   ContextMessage,
+  DefaultTaskState,
   EditFormat,
   FileEdit,
   LogData,
@@ -9976,6 +10373,7 @@ import {
   ResponseChunkData,
   ResponseCompletedData,
   SettingsData,
+  TaskContext,
   TaskStateData,
   TaskData,
   TodoItem,
@@ -9995,14 +10393,6 @@ import { isEqual } from 'lodash';
 import type { SimpleGit } from 'simple-git';
 ⋮----
 import { getAllFiles, isValidProjectFile } from '@/utils/file-system';
-import {
-  getCompactConversationPrompt,
-  getConflictResolutionPrompt,
-  getConflictResolutionSystemPrompt,
-  getGenerateCommitMessagePrompt,
-  getInitProjectPrompt,
-  getSystemPrompt,
-} from '@/agent/prompts';
 import {
   AIDER_DESK_TASKS_DIR,
   AIDER_DESK_TODOS_FILE,
@@ -10029,6 +10419,7 @@ import { WorktreeManager, GitError } from '@/worktrees';
 import { MemoryManager } from '@/memory/memory-manager';
 import { getElectronApp } from '@/app';
 import { HookManager } from '@/hooks/hook-manager';
+import { PromptsManager } from '@/prompts';
 ⋮----
 export class Task
 ⋮----
@@ -10046,6 +10437,7 @@ constructor(
     private readonly worktreeManager: WorktreeManager,
     private readonly memoryManager: MemoryManager,
     public readonly hookManager: HookManager,
+    private readonly promptsManager: PromptsManager,
     initialTaskData?: Partial<TaskData>,
 )
 ⋮----
@@ -10063,10 +10455,21 @@ private async loadTaskData()
 ⋮----
 // Migrate missing task-level settings from project settings
 ⋮----
+// Migrate task state based on last message in context
+⋮----
 /**
    * @deprecated Migrate missing task-level settings from project settings
    */
 private async migrateFromProjectSettings()
+⋮----
+/**
+   * @deprecated Migrate task state based on last message in context
+   */
+private async migrateTaskState()
+⋮----
+// Skip if state is already set
+⋮----
+// Set state based on last message role
 ⋮----
 /**
    * Generate a branch name from task name (first 7 words, separated by '-')
@@ -10129,11 +10532,11 @@ private async waitForCurrentAgentToFinish()
 ⋮----
 private resolveAgentRunPromises()
 ⋮----
-public async runPrompt(prompt: string, mode: Mode = 'code'): Promise<ResponseCompletedData[]>
+public async runPrompt(prompt: string, mode: Mode = 'code', addToInputHistory = true): Promise<ResponseCompletedData[]>
 ⋮----
 // Generate promptContext for this run
 ⋮----
-public async savePromptOnly(prompt: string): Promise<void>
+public async savePromptOnly(prompt: string, addInputHistory = true): Promise<void>
 ⋮----
 // Add user message to context
 ⋮----
@@ -10149,7 +10552,7 @@ public async runPromptInAider(prompt: string, promptContext: PromptContext, mode
 ⋮----
 public async runPromptInAgent(
     profile: AgentProfile,
-    prompt: string,
+    prompt: string | null,
     promptContext: PromptContext = { id: uuidv4() },
     contextMessages?: ContextMessage[],
     contextFiles?: ContextFile[],
@@ -10159,7 +10562,19 @@ public async runPromptInAgent(
 ⋮----
 // send messages to connectors
 ⋮----
-private getTaskNameFromPrompt(prompt: string)
+// Determine task state based on the last assistant message
+⋮----
+private getTaskNameFromPrompt(prompt: string): string
+⋮----
+private async generateTaskNameInBackground(prompt: string): Promise<string | null>
+⋮----
+private async determineTaskState(resultMessages: ContextMessage[]): Promise<string | null>
+⋮----
+// Find the last assistant message from result messages
+⋮----
+// Extract reasoning and text from the last assistant message
+⋮----
+// Create a user message wrapping the last assistant message information
 ⋮----
 public async runSubagent(
     profile: AgentProfile,
@@ -10175,7 +10590,10 @@ public sendPromptToAider(
     prompt: string,
     promptContext: PromptContext = { id: uuidv4() },
     mode?: Mode,
-    messages: { role: MessageRole; content: string }[] = this.contextManager.toConnectorMessages(),
+    messages: {
+      role: MessageRole;
+      content: string;
+    }[] = this.contextManager.toConnectorMessages(),
     files: ContextFile[] = this.contextManager.getContextFiles(),
     options?: AiderRunOptions,
 ): Promise<ResponseCompletedData[]>
@@ -10280,6 +10698,18 @@ const extractModelInfo = (modelName: string | null | undefined) =>
 ⋮----
 private async detectAndAddFilesFromPrompt(prompt: string): Promise<void>
 ⋮----
+// First pass: match files by full path
+⋮----
+// Check if any context file matches a path in the prompt and track those names
+⋮----
+// Second pass: match files by filename only (if not already matched by path)
+⋮----
+// Skip if already matched by path
+⋮----
+// Skip if filename was already matched by path (prevents false positives)
+⋮----
+// Only match by filename if it's not empty and appears in the prompt
+⋮----
 public async getAddableFiles(searchRegex?: string): Promise<string[]>
 ⋮----
 public async getAllFiles(useGit = true): Promise<string[]>
@@ -10294,6 +10724,10 @@ public async getRuleFilesAsContextFiles(profile?: AgentProfile): Promise<Context
 ⋮----
 // Global rules directory doesn't exist or can't be read
 ⋮----
+// Include AGENTS.md from project root if it exists
+⋮----
+// AGENTS.md doesn't exist, which is fine
+⋮----
 // Get project rule files
 ⋮----
 // Project rules directory doesn't exist or can't be read
@@ -10303,10 +10737,6 @@ public async getRuleFilesAsContextFiles(profile?: AgentProfile): Promise<Context
 // Convert to relative path with ~/ prefix if in home directory
 ⋮----
 // Rule file doesn't exist or can't be accessed
-⋮----
-// Include AGENTS.md from project root if it exists
-⋮----
-// AGENTS.md doesn't exist, which is fine
 ⋮----
 public getRepoMap(): string
 ⋮----
@@ -10334,7 +10764,7 @@ public sendToolMessage(data: ToolData)
 ⋮----
 public async clearContext(addToHistory = false, updateContextInfo = true)
 ⋮----
-public interruptResponse(addMessage = true)
+public interruptResponse()
 ⋮----
 public applyEdits(edits: FileEdit[])
 ⋮----
@@ -10347,6 +10777,7 @@ public addToolMessage(
     usageReport?: UsageReportData,
     promptContext?: PromptContext,
     saveToDb = true,
+    finished = !!response,
 )
 ⋮----
 // Update total costs when adding the tool message
@@ -10359,9 +10790,17 @@ public async removeLastMessage()
 ⋮----
 public async redoLastUserPrompt(mode: Mode, updatedPrompt?: string)
 ⋮----
-await this.reloadConnectorMessages(); // This sends 'clear-task' which truncates UI messages
-⋮----
 // No need to await runPrompt here, let it run in the background
+⋮----
+public async resumeTask()
+⋮----
+// In other modes, check if last message is user
+⋮----
+// Last message is from user, redo it
+⋮----
+// Last message is not from user, send "Continue" to aider
+⋮----
+private getCurrentMode()
 ⋮----
 private async reloadConnectorMessages()
 ⋮----
@@ -11184,13 +11623,18 @@ import type { BrowserWindow as BrowserWindowType } from 'electron';
 import { isAbortError } from '@/utils/errors';
 import { isElectron } from '@/app';
 ⋮----
+type WebScrapeFormat = 'markdown' | 'html' | 'raw';
+⋮----
 export class WebScraper
 ⋮----
-async scrape(url: string, timeout: number = 60000, abortSignal?: AbortSignal): Promise<string>
+async scrape(url: string, timeout: number = 60000, abortSignal?: AbortSignal, format: WebScrapeFormat = 'markdown'): Promise<string>
 ⋮----
-// return await this.scrapeWithFetch(url, timeout, abortSignal);
-⋮----
-private async scrapeWithBrowserWindow(url: string, timeout: number = 60000, abortSignal?: AbortSignal): Promise<string>
+private async scrapeWithBrowserWindow(
+    url: string,
+    timeout: number = 60000,
+    abortSignal?: AbortSignal,
+    format: WebScrapeFormat = 'markdown',
+): Promise<string>
 ⋮----
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 ⋮----
@@ -11208,7 +11652,7 @@ private async scrapeWithBrowserWindow(url: string, timeout: number = 60000, abor
 ⋮----
 // Get content type from headers with timeout and abort signal
 ⋮----
-// If it's HTML, convert to markdown-like text
+// If it's HTML, convert to markdown-like text or return HTML based on format
 ⋮----
 // Cleanup window
 ⋮----
@@ -11222,6 +11666,12 @@ private async getContentType(window: BrowserWindowType): Promise<string>
 ⋮----
 private async cleanupWindow(window: BrowserWindowType): Promise<void>
 ⋮----
+private async scrapeWithFetch(url: string, timeout: number = 60000, abortSignal?: AbortSignal): Promise<string>
+⋮----
+// If it's HTML, return the text content
+⋮----
+// For other content types, return as text
+⋮----
 private looksLikeHTML(content: string): boolean
 ⋮----
 private cleanHtml(content: string): string
@@ -11230,7 +11680,7 @@ private cleanHtml(content: string): string
 ⋮----
 private htmlToMarkDown(content: string): string
 ⋮----
-export const scrapeWeb = async (url: string, timeout: number = 60000, abortSignal?: AbortSignal) =>
+export const scrapeWeb = async (url: string, timeout: number = 60000, abortSignal?: AbortSignal, format: WebScrapeFormat = 'markdown') =>
 
 ================
 File: src/main/versions/index.ts
@@ -11873,6 +12323,8 @@ async removeLastMessage(baseDir: string, taskId: string): Promise<void>
 ⋮----
 async redoLastUserPrompt(baseDir: string, taskId: string, mode: Mode, updatedPrompt?: string): Promise<void>
 ⋮----
+async resumeTask(baseDir: string, taskId: string): Promise<void>
+⋮----
 async compactConversation(baseDir: string, taskId: string, mode: Mode, customInstructions?: string): Promise<void>
 ⋮----
 async loadInputHistory(baseDir: string): Promise<string[]>
@@ -11969,6 +12421,8 @@ async getTasks(baseDir: string): Promise<TaskData[]>
 ⋮----
 async loadTask(baseDir: string, taskId: string): Promise<TaskStateData>
 ⋮----
+async generateTaskMarkdown(baseDir: string, taskId: string): Promise<string | null>
+⋮----
 async exportTaskToMarkdown(baseDir: string, taskId: string): Promise<void>
 ⋮----
 setZoomLevel(zoomLevel: number): void
@@ -12002,6 +12456,8 @@ async updateModels(modelUpdates: Array<
 async showOpenDialog(options: Electron.OpenDialogSyncOptions): Promise<Electron.OpenDialogReturnValue>
 ⋮----
 async openLogsDirectory(): Promise<boolean>
+⋮----
+async openPath(path: string): Promise<boolean>
 ⋮----
 async isProjectPath(path: string): Promise<boolean>
 ⋮----
@@ -12072,6 +12528,8 @@ import { getDefaultProjectSettings } from '@/utils';
 ⋮----
 const setupCustomMenu = (): void =>
 ⋮----
+// File menu
+⋮----
 // Edit menu (without Select All)
 ⋮----
 // View menu
@@ -12123,7 +12581,7 @@ import {
   TodoItem,
   AgentProfile,
 } from '@common/types';
-import { ipcMain } from 'electron';
+import { ipcMain, clipboard } from 'electron';
 ⋮----
 import { EventsHandler } from './events-handler';
 ⋮----
@@ -12179,6 +12637,7 @@ import { SERVER_PORT } from '@/constants';
 import logger from '@/logger';
 import { EventsHandler } from '@/events-handler';
 import { HookManager } from '@/hooks/hook-manager';
+import { PromptsManager } from '@/prompts';
 ⋮----
 export interface ManagersResult {
   eventsHandler: EventsHandler;
@@ -12531,7 +12990,6 @@ import { delay } from '@common/utils';
 ⋮----
 import logger from '@/logger';
 import { getCurrentPythonLibVersion, getLatestPythonLibVersion, getPythonVenvBinPath } from '@/utils';
-import { initializeTemplates } from '@/agent/prompts';
 import {
   AIDER_DESK_DATA_DIR,
   SETUP_COMPLETE_FILENAME,
@@ -12808,9 +13266,9 @@ private async get<T>(endpoint: string, params?: Record<string, unknown>): Promis
 ⋮----
 private async patch<B, R>(endpoint: string, body: B): Promise<R>
 ⋮----
-private async delete<T>(endpoint: string): Promise<T>
+private async delete<T>(endpoint: string, params?: Record<string, unknown>): Promise<T>
 ⋮----
-private async put<B, R>(endpoint: string, body: B): Promise<R>
+private async put<B, R>(endpoint: string, body: B, params?: Record<string, unknown>): Promise<R>
 ⋮----
 isOpenLogsDirectorySupported(): boolean
 openLogsDirectory(): Promise<boolean>
@@ -12824,6 +13282,7 @@ restartTask(baseDir: string, taskId: string): void
 runPrompt(baseDir: string, taskId: string, prompt: string, mode?: Mode): void
 savePrompt(baseDir: string, taskId: string, prompt: string): Promise<void>
 redoLastUserPrompt(baseDir: string, taskId: string, mode: Mode, updatedPrompt?: string): void
+resumeTask(baseDir: string, taskId: string): void
 answerQuestion(baseDir: string, taskId: string, answer: string): void
 loadInputHistory(baseDir: string): Promise<string[]>
 isOpenDialogSupported(): boolean
@@ -12864,7 +13323,9 @@ deleteTask(baseDir: string, id: string): Promise<boolean>
 duplicateTask(baseDir: string, taskId: string): Promise<TaskData>
 getTasks(baseDir: string): Promise<TaskData[]>
 loadTask(baseDir: string, id: string): Promise<TaskStateData>
-exportTaskToMarkdown(baseDir: string, taskId: string): Promise<void>
+⋮----
+async exportTaskToMarkdown(baseDir: string, taskId: string): Promise<void>
+⋮----
 getRecentProjects(): Promise<string[]>
 addRecentProject(baseDir: string): Promise<void>
 removeRecentProject(baseDir: string): Promise<void>
@@ -12990,11 +13451,19 @@ resolveWorktreeConflictsWithAgent(baseDir: string, taskId: string): Promise<void
 // Memory operations
 listAllMemories(): Promise<MemoryEntry[]>
 ⋮----
-deleteMemory(id: string): Promise<boolean>
+async deleteMemory(id: string): Promise<boolean>
 ⋮----
 getMemoryEmbeddingProgress(): Promise<MemoryEmbeddingProgress>
 ⋮----
-deleteProjectMemories(projectId: string): Promise<number>
+async deleteProjectMemories(projectId: string): Promise<number>
+⋮----
+async writeToClipboard(text: string): Promise<void>
+⋮----
+// Fallback for mobile browsers and non-secure contexts
+⋮----
+async openPath(): Promise<boolean>
+⋮----
+// Not available in browser context
 ⋮----
 // Agent profile operations
 getAllAgentProfiles(baseDir?: string): Promise<AgentProfile[]>
@@ -13012,15 +13481,14 @@ File: src/renderer/src/components/AgentSelector/AgentSelector.tsx
 ================
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MdCheck, MdFlashOn, MdOutlineChecklist, MdOutlineFileCopy, MdOutlineHdrAuto, MdOutlineMap, MdSave, MdPsychology } from 'react-icons/md';
+import { MdCheck, MdFlashOn, MdOutlineChecklist, MdOutlineFileCopy, MdOutlineHdrAuto, MdOutlineMap, MdPsychology, MdSave } from 'react-icons/md';
 import { RiToolsFill } from 'react-icons/ri';
 import { clsx } from 'clsx';
 import { AgentProfile, TaskData, ToolApprovalState } from '@common/types';
 import { BiCog } from 'react-icons/bi';
 import { TOOL_GROUP_NAME_SEPARATOR } from '@common/tools';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { LuBrain } from 'react-icons/lu';
-import { GrTasks } from 'react-icons/gr';
+import { LuBrain, LuClipboardList } from 'react-icons/lu';
 ⋮----
 import { McpServerSelectorItem } from './McpServerSelectorItem';
 ⋮----
@@ -13376,9 +13844,10 @@ className=
 File: src/renderer/src/components/common/BaseDialog.tsx
 ================
 import { FocusTrap } from 'focus-trap-react';
-import { ReactNode, useEffect, useRef } from 'react';
+import { ReactNode, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { twMerge } from 'tailwind-merge';
+import { useHotkeys } from 'react-hotkeys-hook';
 ⋮----
 type Props = {
   title: string;
@@ -13390,8 +13859,6 @@ type Props = {
   closeOnEscape?: boolean;
   closeButtonText?: string;
 };
-⋮----
-const handleKeyDown = (event: KeyboardEvent) =>
 ⋮----
 className=
 
@@ -13570,22 +14037,8 @@ type Props = {
   confirmButtonColor?: ButtonColor;
   width?: number;
   closeOnEscape?: boolean;
+  footerAdditionalComponents?: ReactNode;
 };
-⋮----
-export const ConfirmDialog = ({
-  title,
-  onConfirm,
-  onCancel,
-  confirmButtonText,
-  cancelButtonText,
-  contentClass,
-  children,
-  disabled = false,
-  confirmButtonClass,
-  confirmButtonColor,
-  width,
-  closeOnEscape = false,
-}: Props) =>
 
 ================
 File: src/renderer/src/components/common/DatePicker.css
@@ -13753,6 +14206,36 @@ type Props<T extends string = string> = {
 const toggleOpen = () =>
 ⋮----
 const handleItemSelect = (value: T) =>
+
+================
+File: src/renderer/src/components/common/LoadingOverlay.tsx
+================
+import { CgSpinner } from 'react-icons/cg';
+import { clsx } from 'clsx';
+⋮----
+type Props = {
+  message: string;
+  spinnerSize?: 'sm' | 'md' | 'lg';
+};
+⋮----
+export const LoadingOverlay = (
+
+================
+File: src/renderer/src/components/common/LoadingText.tsx
+================
+import { ReactNode } from 'react';
+⋮----
+import { useTypingAnimation } from '@/hooks/useTypingAnimation';
+⋮----
+type Props = {
+  label: string;
+  typingSpeed?: number;
+  pauseDuration?: number;
+  icon?: ReactNode;
+  className?: string;
+};
+⋮----
+export const LoadingText = (
 
 ================
 File: src/renderer/src/components/common/MarkdownInfoDialog.tsx
@@ -13971,6 +14454,24 @@ type Props<T> = {
 const handleSort = (column: Column<T>) =>
 ⋮----
 onClick=
+
+================
+File: src/renderer/src/components/common/TaskStateChip.tsx
+================
+import { useTranslation } from 'react-i18next';
+import { twMerge } from 'tailwind-merge';
+import { DefaultTaskState } from '@common/types';
+⋮----
+type Props = {
+  state: string;
+  className?: string;
+};
+⋮----
+const getStateTextClass = (state: string): string =>
+⋮----
+export const TaskStateChip = (
+⋮----
+<span className=
 
 ================
 File: src/renderer/src/components/common/TextArea.tsx
@@ -14271,14 +14772,19 @@ return <ExpandableMessageBlock title=
 ================
 File: src/renderer/src/components/message/BashToolMessage.tsx
 ================
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RiTerminalLine, RiErrorWarningFill, RiCheckboxCircleFill, RiCloseCircleFill } from 'react-icons/ri';
 import { CgSpinner } from 'react-icons/cg';
+import { MdKeyboardDoubleArrowDown } from 'react-icons/md';
 ⋮----
 import { ToolMessage } from '@/types/message';
 import { CodeInline } from '@/components/common/CodeInline';
 import { ExpandableMessageBlock } from '@/components/message/ExpandableMessageBlock';
 import { StyledTooltip } from '@/components/common/StyledTooltip';
+import { CopyMessageButton } from '@/components/message/CopyMessageButton';
+import { IconButton } from '@/components/common/IconButton';
+import { useScrollingPaused } from '@/hooks/useScrollingPaused';
 ⋮----
 type Props = {
   message: ToolMessage;
@@ -14286,7 +14792,13 @@ type Props = {
   compact?: boolean;
 };
 ⋮----
-return <ExpandableMessageBlock title=
+const handleScrollToBottom = () =>
+⋮----
+const handleExpandedChange = (open: boolean) =>
+⋮----
+aria-label=
+⋮----
+<ExpandableMessageBlock title=
 
 ================
 File: src/renderer/src/components/message/CommandOutputMessageBlock.tsx
@@ -14308,10 +14820,12 @@ File: src/renderer/src/components/message/CopyMessageButton.tsx
 ================
 import { BiCopy } from 'react-icons/bi';
 import { useTranslation } from 'react-i18next';
+import { twMerge } from 'tailwind-merge';
 ⋮----
 import { IconButton } from '../common/IconButton';
 ⋮----
 import { showInfoNotification } from '@/utils/notifications';
+import { useApi } from '@/contexts/ApiContext';
 ⋮----
 type Props = {
   content: string;
@@ -14319,7 +14833,11 @@ type Props = {
   alwaysShow?: boolean;
 };
 ⋮----
-const copyToClipboard = () =>
+const copyToClipboard = async () =>
+⋮----
+// eslint-disable-next-line no-console
+⋮----
+icon=
 
 ================
 File: src/renderer/src/components/message/CreateTaskToolMessage.tsx
@@ -14339,8 +14857,6 @@ type Props = {
   onRemove?: () => void;
   compact?: boolean;
 };
-⋮----
-{/* Success Message */}
 ⋮----
 {/* Task Details */}
 ⋮----
@@ -14424,6 +14940,7 @@ type Props = {
   usageReport?: UsageReportData;
   onRemove?: () => void;
   initialExpanded?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 ⋮----
 export interface ExpandableMessageBlockRef {
@@ -14446,6 +14963,8 @@ import { ToolMessage } from '@/types/message';
 import { CodeInline } from '@/components/common/CodeInline';
 import { ExpandableMessageBlock } from '@/components/message/ExpandableMessageBlock';
 import { StyledTooltip } from '@/components/common/StyledTooltip';
+import { highlightWithLowlight } from '@/utils/highlighter';
+import { CopyMessageButton } from '@/components/message/CopyMessageButton';
 ⋮----
 type Props = {
   message: ToolMessage;
@@ -14568,6 +15087,7 @@ import { ToolMessage } from '@/types/message';
 import { CodeInline } from '@/components/common/CodeInline';
 import { ExpandableMessageBlock } from '@/components/message/ExpandableMessageBlock';
 import { StyledTooltip } from '@/components/common/StyledTooltip';
+import { TaskStateChip } from '@/components/common/TaskStateChip';
 ⋮----
 type Props = {
   message: ToolMessage;
@@ -14722,11 +15242,12 @@ File: src/renderer/src/components/message/ListTasksToolMessage.tsx
 import { useTranslation } from 'react-i18next';
 import { RiCheckboxCircleFill, RiCloseCircleFill, RiErrorWarningFill } from 'react-icons/ri';
 import { CgSpinner } from 'react-icons/cg';
-import { GrTasks } from 'react-icons/gr';
+import { LuClipboardList } from 'react-icons/lu';
 ⋮----
 import { ToolMessage } from '@/types/message';
 import { ExpandableMessageBlock } from '@/components/message/ExpandableMessageBlock';
 import { StyledTooltip } from '@/components/common/StyledTooltip';
+import { TaskStateChip } from '@/components/common/TaskStateChip';
 ⋮----
 type Props = {
   message: ToolMessage;
@@ -14741,6 +15262,7 @@ type Task = {
     description?: string;
     createdAt?: string;
     updatedAt?: string;
+    state?: string;
   };
 ⋮----
 return <ExpandableMessageBlock title=
@@ -14748,23 +15270,14 @@ return <ExpandableMessageBlock title=
 ================
 File: src/renderer/src/components/message/LoadingMessageBlock.tsx
 ================
-import { useEffect, useState } from 'react';
-⋮----
 import { Message } from '@/types/message';
+import { useTypingAnimation } from '@/hooks/useTypingAnimation';
 ⋮----
 type Props = {
   message: Message;
 };
 ⋮----
 export const LoadingMessageBlock = (
-⋮----
-// When we reach the end, wait a bit longer before restarting
-⋮----
-}, 3000); // 1 second pause before restarting
-⋮----
-// Letter-by-letter typing animation
-⋮----
-}, 60); // Adjust speed as needed
 
 ================
 File: src/renderer/src/components/message/LogMessageBlock.tsx
@@ -14868,6 +15381,7 @@ import {
   MEMORY_TOOL_RETRIEVE,
   MEMORY_TOOL_DELETE,
   MEMORY_TOOL_LIST,
+  MEMORY_TOOL_UPDATE,
   POWER_TOOL_BASH,
   POWER_TOOL_FETCH,
   POWER_TOOL_FILE_EDIT,
@@ -14914,7 +15428,9 @@ import { StoreMemoryToolMessage } from './StoreMemoryToolMessage';
 import { RetrieveMemoryToolMessage } from './RetrieveMemoryToolMessage';
 import { DeleteMemoryToolMessage } from './DeleteMemoryToolMessage';
 import { ListMemoriesToolMessage } from './ListMemoriesToolMessage';
+import { UpdateMemoryToolMessage } from './UpdateMemoryToolMessage';
 import { ActivateSkillToolMessage } from './ActivateSkillToolMessage';
+import { TaskInfoMessage } from './TaskInfoMessage';
 import { areMessagesEqual } from './utils';
 ⋮----
 import {
@@ -14923,6 +15439,7 @@ import {
   isLogMessage,
   isReflectedMessage,
   isResponseMessage,
+  isTaskInfoMessage,
   isToolMessage,
   isUserMessage,
   LogMessage,
@@ -14949,11 +15466,12 @@ const arePropsEqual = (prevProps: Props, nextProps: Props): boolean =>
 ================
 File: src/renderer/src/components/message/Messages.tsx
 ================
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { toPng } from 'html-to-image';
-import { MdKeyboardArrowDown } from 'react-icons/md';
+import { MdKeyboardDoubleArrowDown } from 'react-icons/md';
 import { useTranslation } from 'react-i18next';
-import { IoPlay } from 'react-icons/io5';
+import { TaskData } from '@common/types';
+import { TaskStateActions } from 'src/renderer/src/components/message/TaskStateActions';
 ⋮----
 import { MessageBlock } from './MessageBlock';
 import { GroupMessageBlock } from './GroupMessageBlock';
@@ -14962,8 +15480,9 @@ import { isGroupMessage, isUserMessage, Message } from '@/types/message';
 import { IconButton } from '@/components/common/IconButton';
 import { StyledTooltip } from '@/components/common/StyledTooltip';
 import { groupMessagesByPromptContext } from '@/components/message/utils';
-import { Button } from '@/components/common/Button';
 import { useScrollingPaused } from '@/hooks/useScrollingPaused';
+import { useUserMessageNavigation } from '@/hooks/useUserMessageNavigation';
+import { useSettings } from '@/contexts/SettingsContext';
 ⋮----
 export type MessagesRef = {
   exportToImage: () => void;
@@ -14974,16 +15493,24 @@ export type MessagesRef = {
 type Props = {
   baseDir: string;
   taskId: string;
+  task: TaskData;
   messages: Message[];
   allFiles?: string[];
   renderMarkdown: boolean;
   removeMessage: (message: Message) => void;
+  resumeTask: () => void;
   redoLastUserPrompt: () => void;
   editLastUserMessage: (content: string) => void;
-  processing: boolean;
+  onMarkAsDone: () => void;
+  onProceed?: () => void;
+  onArchiveTask?: () => void;
+  onUnarchiveTask?: () => void;
+  onDeleteTask?: () => void;
 };
 ⋮----
 // Group messages by promptContext.group.id
+⋮----
+// Get all user message IDs
 ⋮----
 const exportToImage = async () =>
 ⋮----
@@ -15018,7 +15545,6 @@ import { RiRobot2Line } from 'react-icons/ri';
 ⋮----
 import { MessageBar } from './MessageBar';
 ⋮----
-import santaHat from '@/icons/santa-hat.png';
 import { useParsedContent } from '@/hooks/useParsedContent';
 import { ResponseMessage } from '@/types/message';
 ⋮----
@@ -15038,13 +15564,17 @@ className=
 ================
 File: src/renderer/src/components/message/RetrieveMemoryToolMessage.tsx
 ================
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FaBrain, FaCheckCircle, FaExclamationTriangle, FaTimesCircle } from 'react-icons/fa';
+import { FaBrain, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaTrash } from 'react-icons/fa';
 import { CgSpinner } from 'react-icons/cg';
 ⋮----
 import { ToolMessage } from '@/types/message';
 import { ExpandableMessageBlock } from '@/components/message/ExpandableMessageBlock';
 import { StyledTooltip } from '@/components/common/StyledTooltip';
+import { IconButton } from '@/components/common/IconButton';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useApi } from '@/contexts/ApiContext';
 ⋮----
 type Props = {
   message: ToolMessage;
@@ -15052,13 +15582,25 @@ type Props = {
   compact?: boolean;
 };
 ⋮----
+const loadMemories = async () =>
+⋮----
+// Ignore errors loading memories
+⋮----
+const handleDeleteMemory = async () =>
+⋮----
+// Ignore errors loading memories
+⋮----
 {/* Query parameters */}
 ⋮----
 {/* Memory List */}
 ⋮----
+onClick=
+⋮----
 // Fallback for unexpected content (backward compatibility)
 ⋮----
-return <ExpandableMessageBlock title=
+title=
+⋮----
+confirmButtonText=
 
 ================
 File: src/renderer/src/components/message/SemanticSearchToolMessage.tsx
@@ -15134,6 +15676,72 @@ const renderHeader = () => (
       </div>
     </div>
   );
+
+================
+File: src/renderer/src/components/message/TaskInfoMessage.tsx
+================
+import { useTranslation } from 'react-i18next';
+import { FaClipboard, FaFolderOpen } from 'react-icons/fa';
+import { MdAssignment } from 'react-icons/md';
+⋮----
+import { TaskInfoMessage as TaskInfoMessageType } from '@/types/message';
+import { CodeInline } from '@/components/common/CodeInline';
+import { CopyMessageButton } from '@/components/message/CopyMessageButton';
+import { IconButton } from '@/components/common/IconButton';
+import { useApi } from '@/contexts/ApiContext';
+⋮----
+type Props = {
+  message: TaskInfoMessageType;
+  onRemove?: () => void;
+};
+⋮----
+const handleCopyTaskId = async () =>
+⋮----
+// eslint-disable-next-line no-console
+⋮----
+const handleOpenFolder = async (path: string) =>
+⋮----
+// eslint-disable-next-line no-console
+⋮----
+const formatDate = (dateString?: string) =>
+⋮----
+onClick=
+
+================
+File: src/renderer/src/components/message/TaskStateActions.tsx
+================
+import { IoPlayOutline } from 'react-icons/io5';
+import { RiAlertLine, RiCheckLine, RiPlayLine } from 'react-icons/ri';
+import { useTranslation } from 'react-i18next';
+import { useState, ReactNode } from 'react';
+import { DefaultTaskState, TaskData } from '@common/types';
+⋮----
+import { Button } from '@/components/common/Button';
+⋮----
+type Props = {
+  task: TaskData;
+  onResumeTask: () => void;
+  onMarkAsDone: () => void;
+  onProceed?: () => void;
+  onArchiveTask?: () => void;
+  onUnarchiveTask?: () => void;
+  onDeleteTask?: () => void;
+};
+⋮----
+const handleDeleteClick = () =>
+⋮----
+const handleCancelDelete = () =>
+⋮----
+const handleConfirmDelete = () =>
+⋮----
+const handleProceedClick = () =>
+⋮----
+const handleArchiveClick = () =>
+⋮----
+const handleUnarchiveClick = () =>
+⋮----
+const renderSection = (icon: ReactNode, text: string, actions: ReactNode) =>
+⋮----
 
 ================
 File: src/renderer/src/components/message/ThinkingAnswerBlock.tsx
@@ -15230,6 +15838,29 @@ rawContentToCopy = JSON.stringify(parsedResult.json); // Copy raw JSON
 {/* Tool Specific Content */}
 
 ================
+File: src/renderer/src/components/message/UpdateMemoryToolMessage.tsx
+================
+import { useTranslation } from 'react-i18next';
+import { FaBrain, FaCheckCircle, FaExclamationTriangle, FaTimesCircle } from 'react-icons/fa';
+import { CgSpinner } from 'react-icons/cg';
+⋮----
+import { ToolMessage } from '@/types/message';
+import { ExpandableMessageBlock } from '@/components/message/ExpandableMessageBlock';
+import { StyledTooltip } from '@/components/common/StyledTooltip';
+⋮----
+type Props = {
+  message: ToolMessage;
+  onRemove?: () => void;
+  compact?: boolean;
+};
+⋮----
+{/* Memory ID */}
+⋮----
+{/* New Content */}
+⋮----
+return <ExpandableMessageBlock title=
+
+================
 File: src/renderer/src/components/message/UsageInfo.tsx
 ================
 import { useTranslation } from 'react-i18next';
@@ -15269,7 +15900,7 @@ export const UserMessageBlock = (
 ⋮----
 const handleEdit = () =>
 ⋮----
-<div className=
+<div id=
 
 ================
 File: src/renderer/src/components/message/utils.tsx
@@ -15411,11 +16042,12 @@ return result; // Return default if rawContent is empty
 ================
 File: src/renderer/src/components/message/VirtualizedMessages.tsx
 ================
-import { forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef } from 'react';
-import { MdKeyboardArrowDown } from 'react-icons/md';
+import { MdKeyboardDoubleArrowDown } from 'react-icons/md';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { IoPlay } from 'react-icons/io5';
+import { TaskData } from '@common/types';
+import { forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef } from 'react';
+import { TaskStateActions } from 'src/renderer/src/components/message/TaskStateActions';
 ⋮----
 import { MessageBlock } from './MessageBlock';
 import { GroupMessageBlock } from './GroupMessageBlock';
@@ -15425,8 +16057,8 @@ import { IconButton } from '@/components/common/IconButton';
 import { StyledTooltip } from '@/components/common/StyledTooltip';
 import { groupMessagesByPromptContext } from '@/components/message/utils';
 import { showInfoNotification } from '@/utils/notifications';
-import { Button } from '@/components/common/Button';
 import { useScrollingPaused } from '@/hooks/useScrollingPaused';
+import { useSettings } from '@/contexts/SettingsContext';
 ⋮----
 export type VirtualizedMessagesRef = {
   exportToImage: () => void;
@@ -15437,13 +16069,19 @@ export type VirtualizedMessagesRef = {
 type Props = {
   baseDir: string;
   taskId: string;
+  task: TaskData;
   messages: Message[];
   allFiles?: string[];
   renderMarkdown: boolean;
   removeMessage: (message: Message) => void;
+  resumeTask: () => void;
   redoLastUserPrompt: () => void;
   editLastUserMessage: (content: string) => void;
-  processing: boolean;
+  onMarkAsDone: () => void;
+  onProceed?: () => void;
+  onArchiveTask?: () => void;
+  onUnarchiveTask?: () => void;
+  onDeleteTask?: () => void;
 };
 ⋮----
 // Group messages by promptContext.group.id
@@ -15452,9 +16090,7 @@ type Props = {
 ⋮----
 estimateSize: () => 44, // Initial estimate, will be measured
 ⋮----
-// Scroll to the last item when new messages arrive
-⋮----
-// eslint-disable-next-line react-hooks/exhaustive-deps
+// Scroll to last item when new messages arrive
 ⋮----
 const exportToImage = async () =>
 ⋮----
@@ -16201,6 +16837,27 @@ const handleApiKeyChange = (e: ChangeEvent<HTMLInputElement>) =>
 label=
 
 ================
+File: src/renderer/src/components/ModelLibrary/providers/SyntheticParameters.tsx
+================
+import { ChangeEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import { SyntheticProvider } from '@common/agent';
+⋮----
+import { Input } from '@/components/common/Input';
+import { useEffectiveEnvironmentVariable } from '@/hooks/useEffectiveEnvironmentVariable';
+⋮----
+type Props = {
+  provider: SyntheticProvider;
+  onChange: (updated: SyntheticProvider) => void;
+};
+⋮----
+export const SyntheticParameters = (
+⋮----
+const handleApiKeyChange = (e: ChangeEvent<HTMLInputElement>) =>
+⋮----
+label=
+
+================
 File: src/renderer/src/components/ModelLibrary/providers/VertexAiAdvancedSettings.tsx
 ================
 import { useTranslation } from 'react-i18next';
@@ -16317,7 +16974,7 @@ File: src/renderer/src/components/ModelLibrary/index.ts
 ================
 File: src/renderer/src/components/ModelLibrary/ModelDialog.tsx
 ================
-import { useEffect, useState } from 'react';
+import { startTransition, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Model, ProviderProfile } from '@common/types';
 import { DEFAULT_MODEL_TEMPERATURE } from '@common/agent';
@@ -16338,6 +16995,10 @@ type Props = {
   onCancel: () => void;
 };
 ⋮----
+// Batch state updates to avoid cascading renders
+⋮----
+// Batch state updates to avoid cascading renders
+⋮----
 const validateForm = (): boolean =>
 ⋮----
 const handleSubmit = () =>
@@ -16345,6 +17006,8 @@ const handleSubmit = () =>
 const handleInputChange = (field: keyof Model, value: unknown) =>
 ⋮----
 // Clear error when user starts typing
+⋮----
+const handleCostBlur = (field: keyof Model, displayField: keyof typeof costDisplayValues, inputValue: string) =>
 ⋮----
 const handleTemperatureToggle = (enabled: boolean) =>
 ⋮----
@@ -16356,6 +17019,8 @@ disabled={!!model} // Don't allow changing provider for existing models
 ⋮----
 disabled={!!model} // Don't allow changing ID for existing models
 ⋮----
+onBlur=
+⋮----
 <span>
 ⋮----
 {/* Advanced Settings - Provider Overrides */}
@@ -16365,14 +17030,16 @@ disabled={!!model} // Don't allow changing ID for existing models
 ================
 File: src/renderer/src/components/ModelLibrary/ModelLibrary.tsx
 ================
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { Model, ProviderProfile } from '@common/types';
 import { LlmProviderName } from '@common/agent';
 ⋮----
 import { ModelDialog } from './ModelDialog';
 import { ProviderSelection } from './ProviderSelection';
 import { ProviderProfileForm } from './ProviderProfileForm';
+import { ProviderProfileDialog } from './ProviderProfileDialog';
 import { ProviderHeader } from './ProviderHeader';
 import { ModelTableSection } from './ModelTableSection';
 ⋮----
@@ -16383,6 +17050,12 @@ type Props = {
   onClose: () => void;
 };
 ⋮----
+export const ModelLibrary = (
+⋮----
+const handleCancelConfigure = () =>
+⋮----
+const handleClose = () =>
+⋮----
 const handleToggleProviderSelect = (profileId: string) =>
 ⋮----
 const handleAddProvider = () =>
@@ -16392,8 +17065,6 @@ const handleSelectProvider = (provider: LlmProviderName) =>
 const handleEditProfile = (profile: ProviderProfile) =>
 ⋮----
 const handleDeleteProfile = async (profile: ProviderProfile) =>
-⋮----
-const handleCancelConfigure = () =>
 ⋮----
 const handleSaveProfile = async (profile: ProviderProfile) =>
 ⋮----
@@ -16582,6 +17253,7 @@ import {
   OpenAiIcon,
   OpenRouterIcon,
   RequestyIcon,
+  SyntheticIcon,
   VertexAiIcon,
   ZaiPlanIcon,
 } from '@/icons';
@@ -16636,12 +17308,43 @@ setShowDeleteConfirm(false);
 onCancel=
 
 ================
+File: src/renderer/src/components/ModelLibrary/ProviderProfileDialog.tsx
+================
+import { useTranslation } from 'react-i18next';
+import { useRef, useState } from 'react';
+import { LlmProviderName } from '@common/agent';
+import { ProviderProfile } from '@common/types';
+⋮----
+import { ProviderProfileForm, ProviderProfileFormRef } from './ProviderProfileForm';
+⋮----
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { Button } from '@/components/common/Button';
+⋮----
+type Props = {
+  provider: LlmProviderName;
+  profile?: ProviderProfile;
+  providers: ProviderProfile[];
+  onSave: (profile: ProviderProfile) => void;
+  onCancel: () => void;
+};
+⋮----
+export const ProviderProfileDialog = (
+⋮----
+const handleSave = (savedProfile: ProviderProfile) =>
+⋮----
+const handleToggleDisabled = () =>
+⋮----
+title=
+⋮----
+confirmButtonText=
+
+================
 File: src/renderer/src/components/ModelLibrary/ProviderProfileForm.tsx
 ================
 import { getDefaultProviderParams, LlmProvider, LlmProviderName } from '@common/agent';
 import { ProviderProfile } from '@common/types';
 import { useTranslation } from 'react-i18next';
-import { ComponentType, ReactNode, useEffect, useState } from 'react';
+import { ComponentType, forwardRef, useImperativeHandle, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 ⋮----
@@ -16662,6 +17365,7 @@ import {
   OpenAiParameters,
   OpenRouterParameters,
   RequestyParameters,
+  SyntheticParameters,
   VertexAIParameters,
   ZaiPlanParameters,
 } from '@/components/ModelLibrary/providers';
@@ -16681,15 +17385,17 @@ type Header = { id: string; key: string; value: string };
 ⋮----
 type Props = {
   provider: LlmProviderName;
-  editProfile?: ProviderProfile; // for editing
+  editProfile?: ProviderProfile;
   providers: ProviderProfile[];
   onSave: (profile: ProviderProfile) => void;
   onCancel: () => void;
+  hideActions?: boolean;
+  hideTitle?: boolean;
 };
 ⋮----
-editProfile?: ProviderProfile; // for editing
-⋮----
-// Set defaults for new profile
+export type ProviderProfileFormRef = {
+  submit: () => void;
+};
 ⋮----
 const handleIdChange = (value: string) =>
 ⋮----
@@ -16708,18 +17414,6 @@ const validateForm = (): boolean =>
 // Check for duplicate IDs
 ⋮----
 const handleSave = () =>
-⋮----
-const renderSectionAccordion = (title: ReactNode, children: ReactNode, open?: boolean, setOpen?: (open: boolean) => void) => (
-    <Accordion
-      title={<div className="flex-1 text-left text-sm font-medium px-2">{title}</div>}
-      chevronPosition="right"
-      className="mb-2 border rounded-md border-border-default-dark"
-      isOpen={open}
-      onOpenChange={setOpen}
-    >
-      <div className="p-4 pt-2">{children}</div>
-    </Accordion>
-  );
 ⋮----
 placeholder=
 ⋮----
@@ -16754,6 +17448,7 @@ import {
   OpenAiIcon,
   OpenRouterIcon,
   RequestyIcon,
+  SyntheticIcon,
   VertexAiIcon,
   ZaiPlanIcon,
 } from '@/icons';
@@ -16903,9 +17598,9 @@ continue; // No parent directories if it's a root file or empty/invalid path
 ⋮----
 // Deduplicate in case a path could be sourced from both lists or if suggestionFiles had duplicates
 ⋮----
-const handleInputSubmit = () =>
+const handleInputSubmit = (isMultiSelect = false) =>
 ⋮----
-const handleAutocompleteInputChange = (value: string, isFromSuggestion?: boolean) =>
+const handleAutocompleteInputChange = (value: string, isFromSuggestion?: boolean, isMultiSelect?: boolean) =>
 ⋮----
 setInputValue(''); // Clear input after adding from suggestion
 setShowSuggestions(false); // Hide suggestions after selection
@@ -17040,11 +17735,13 @@ type Props = {
 ================
 File: src/renderer/src/components/project/OpenProjectDialog.tsx
 ================
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { FaFolder } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { ProjectData } from '@common/types';
+import { useHotkeys } from 'react-hotkeys-hook';
 ⋮----
+import { useConfiguredHotkeys } from '@/hooks/useConfiguredHotkeys';
 import { AutocompletionInput } from '@/components/AutocompletionInput';
 import { Accordion } from '@/components/common/Accordion';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -17058,13 +17755,13 @@ type Props = {
   openProjects: ProjectData[];
 };
 ⋮----
+// eslint-disable-next-line no-console
+⋮----
+// Browse for folder
+⋮----
 const loadRecentProjects = async () =>
 ⋮----
 const updateSuggestions = async () =>
-⋮----
-const handleSelectProject = async () =>
-⋮----
-// eslint-disable-next-line no-console
 ⋮----
 const handleAddProject = () =>
 ⋮----
@@ -17078,7 +17775,7 @@ File: src/renderer/src/components/project/ProjectTabs.tsx
 ================
 import { ProjectData } from '@common/types';
 import { CSS } from '@dnd-kit/utilities';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Tab, TabGroup, TabList } from '@headlessui/react';
 import { clsx } from 'clsx';
 import { MdAdd, MdClose, MdChevronLeft, MdChevronRight } from 'react-icons/md';
@@ -17090,18 +17787,14 @@ import type { DragEndEvent } from '@dnd-kit/core';
 ⋮----
 import { MenuOption, useContextMenu } from '@/contexts/ContextMenuContext';
 ⋮----
-type ProjectOperations = {
-  onCloseProject: (baseDir: string) => Promise<void>;
-  onCloseOtherProjects: (baseDir: string) => Promise<void>;
-  onCloseAllProjects: () => Promise<void>;
-};
-⋮----
 type Props = {
   openProjects: ProjectData[];
   activeProject: ProjectData | undefined;
   onAddProject: () => void;
   onSetActiveProject: (baseDir: string) => void;
-  projectOperations: ProjectOperations;
+  onCloseProject: (baseDir: string) => void;
+  onCloseOtherProjects: (baseDir: string) => void;
+  onCloseAllProjects: () => void;
   onReorderProjects: (projects: ProjectData[]) => void;
 };
 ⋮----
@@ -17119,7 +17812,7 @@ const handleDragEnd = (event: DragEndEvent) =>
 ⋮----
 onChange=
 ⋮----
-const handleRightClick = (event: React.MouseEvent) =>
+const handleRightClick = (event: MouseEvent) =>
 ⋮----
 className={clsx(
             'flex items-center justify-center rounded-full p-1 transition-colors duration-200 z-10',
@@ -17134,17 +17827,19 @@ File: src/renderer/src/components/project/ProjectView.tsx
 ================
 import { InputHistoryData, ProjectData, ProjectStartMode, TaskData } from '@common/types';
 import { useTranslation } from 'react-i18next';
-import { startTransition, useCallback, useEffect, useOptimistic, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useOptimistic, useRef, useState, useTransition } from 'react';
 import { useLocalStorage } from '@reactuses/core';
-import { CgSpinner } from 'react-icons/cg';
+import { useHotkeys } from 'react-hotkeys-hook';
 ⋮----
 import { useSettings } from '@/contexts/SettingsContext';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
+import { LoadingOverlay } from '@/components/common/LoadingOverlay';
 import { TaskView, TaskViewRef } from '@/components/project/TaskView';
 import { COLLAPSED_WIDTH, EXPANDED_WIDTH, TaskSidebar } from '@/components/project/TaskSidebar';
 import { useApi } from '@/contexts/ApiContext';
 import { TaskProvider } from '@/contexts/TaskContext';
-import { showInfoNotification } from '@/utils/notifications';
+import { useConfiguredHotkeys } from '@/hooks/useConfiguredHotkeys';
+import { getSortedVisibleTasks } from '@/utils/task-utils';
 ⋮----
 type Props = {
   project: ProjectData;
@@ -17190,6 +17885,8 @@ const initProject = async () =>
 ⋮----
 // eslint-disable-next-line no-console
 ⋮----
+// Switch to specific task tabs (Ctrl + 1-9)
+⋮----
 const handleToggleCollapse = () =>
 ⋮----
 // eslint-disable-next-line no-console
@@ -17198,11 +17895,16 @@ const handleToggleCollapse = () =>
 ⋮----
 // eslint-disable-next-line no-console
 ⋮----
+// Close current task
+⋮----
 // eslint-disable-next-line no-console
 ⋮----
 // Optionally switch to the new task
 ⋮----
 // eslint-disable-next-line no-console
+⋮----
+onUnarchiveTask=
+onDeleteTask=
 
 ================
 File: src/renderer/src/components/project/TaskBar.tsx
@@ -17288,38 +17990,42 @@ onSquash=
 ================
 File: src/renderer/src/components/project/TaskSidebar.tsx
 ================
-import { TaskData } from '@common/types';
+import { DefaultTaskState, TaskData } from '@common/types';
 import { useTranslation } from 'react-i18next';
-import { KeyboardEvent, MouseEvent, useState, memo, useRef, useEffect } from 'react';
-import { HiOutlinePencil, HiOutlineTrash, HiPlus, HiCheck } from 'react-icons/hi';
+import { KeyboardEvent, MouseEvent, useState, memo, useRef, useEffect, useOptimistic, startTransition } from 'react';
+import { HiOutlinePencil, HiOutlineTrash, HiPlus, HiCheck, HiSparkles } from 'react-icons/hi';
 import { RiMenuUnfold4Line } from 'react-icons/ri';
 import { FaEllipsisVertical } from 'react-icons/fa6';
 import { IoLogoMarkdown } from 'react-icons/io';
 import { CgSpinner } from 'react-icons/cg';
-import { MdImage, MdOutlineSearch } from 'react-icons/md';
+import { MdImage, MdOutlineSearch, MdPushPin } from 'react-icons/md';
 import { clsx } from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
-import { BiCopy, BiDuplicate, BiArchive, BiArchiveIn } from 'react-icons/bi';
+import { BiDuplicate, BiArchive, BiArchiveIn } from 'react-icons/bi';
 import { HiXMark } from 'react-icons/hi2';
 import { useDebounce, useLongPress } from '@reactuses/core';
 ⋮----
 import { useTask } from '@/contexts/TaskContext';
+import { getSortedVisibleTasks } from '@/utils/task-utils';
 import { Input } from '@/components/common/Input';
 import { StyledTooltip } from '@/components/common/StyledTooltip';
 import { Button } from '@/components/common/Button';
 import { IconButton } from '@/components/common/IconButton';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { LoadingText } from '@/components/common/LoadingText';
+import { TaskStateChip } from '@/components/common/TaskStateChip';
 ⋮----
 type TaskMenuButtonProps = {
   onEdit: () => void;
   onDelete?: () => void;
   onExportToMarkdown?: () => void;
   onExportToImage?: () => void;
-  onCopyTaskId?: () => void;
   onDuplicateTask?: () => void;
   onArchiveTask?: () => void;
   onUnarchiveTask?: () => void;
+  onTogglePin?: () => void;
+  isPinned?: boolean;
 };
 ⋮----
 const handleMenuClick = () =>
@@ -17332,15 +18038,17 @@ const handleExportToMarkdownClick = (e: MouseEvent) =>
 ⋮----
 const handleExportToImageClick = (e: MouseEvent) =>
 ⋮----
-const handleCopyTaskIdClick = (e: MouseEvent) =>
-⋮----
 const handleDuplicateTaskClick = (e: MouseEvent) =>
 ⋮----
 const handleArchiveTaskClick = (e: MouseEvent) =>
 ⋮----
 const handleUnarchiveTaskClick = (e: MouseEvent) =>
 ⋮----
+const handlePinClick = (e: MouseEvent) =>
+⋮----
 <div className=
+⋮----
+data-tooltip-content=
 ⋮----
 className={clsx(
             'transition-opacity p-1.5 rounded-md hover:bg-bg-tertiary text-text-muted hover:text-text-primary',
@@ -17397,10 +18105,16 @@ const handleUnarchiveTask = async (taskId: string) =>
 ⋮----
 // eslint-disable-next-line no-console
 ⋮----
+const handleTogglePin = async (taskId: string) =>
+⋮----
+// eslint-disable-next-line no-console
+⋮----
 // Multiselect handlers
 const handleTaskCtrlClick = (e: MouseEvent, taskId: string) =>
 ⋮----
 const handleTaskClickInMultiselect = (e: MouseEvent, taskId: string) =>
+⋮----
+const handleTaskShiftClick = (taskId: string) =>
 ⋮----
 const handleBulkDelete = async () =>
 ⋮----
@@ -17412,7 +18126,11 @@ const handleBulkArchive = async () =>
 ⋮----
 return <span className=
 ⋮----
+label=
+⋮----
 onEdit=
+⋮----
+onTogglePin=
 ⋮----
 <h3 className="text-sm font-semibold uppercase h-5">
 ⋮----
@@ -17443,20 +18161,21 @@ const arePropsEqual = (prevProps: Props, nextProps: Props): boolean =>
 ================
 File: src/renderer/src/components/project/TaskView.tsx
 ================
-import { Mode, Model, ModelsData, ProjectData, TaskData, TodoItem } from '@common/types';
+import { DefaultTaskState, Mode, Model, ModelsData, ProjectData, TaskData, TodoItem } from '@common/types';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, useTransition } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CgSpinner } from 'react-icons/cg';
 import { ResizableBox, ResizeCallbackData } from 'react-resizable';
 import { clsx } from 'clsx';
 import { getProviderModelId } from '@common/agent';
 import { RiMenuUnfold4Line } from 'react-icons/ri';
 import { useLocalStorage } from '@reactuses/core';
+import { useHotkeys } from 'react-hotkeys-hook';
+import { v4 as uuidv4 } from 'uuid';
 ⋮----
 import { useSidebarWidth } from './useSidebarWidth';
 ⋮----
 import { StyledTooltip } from '@/components/common/StyledTooltip';
-import { isLogMessage, isResponseMessage, isToolMessage, isUserMessage, Message } from '@/types/message';
+import { isLogMessage, isResponseMessage, isToolMessage, isUserMessage, Message, TaskInfoMessage } from '@/types/message';
 import { Messages, MessagesRef } from '@/components/message/Messages';
 import { VirtualizedMessages, VirtualizedMessagesRef } from '@/components/message/VirtualizedMessages';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -17478,6 +18197,8 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useModelProviders } from '@/contexts/ModelProviderContext';
 import { useTask } from '@/contexts/TaskContext';
 import { useAgents } from '@/contexts/AgentsContext';
+import { useConfiguredHotkeys } from '@/hooks/useConfiguredHotkeys';
+import { LoadingOverlay } from '@/components/common/LoadingOverlay';
 ⋮----
 type AddFileDialogOptions = {
   readOnly: boolean;
@@ -17485,6 +18206,7 @@ type AddFileDialogOptions = {
 ⋮----
 export type TaskViewRef = {
   exportMessagesToImage: () => void;
+  focusPromptField: () => void;
 };
 ⋮----
 type Props = {
@@ -17494,14 +18216,14 @@ type Props = {
   inputHistory: string[];
   isActive?: boolean;
   showSettingsPage?: (pageId?: string, options?: Record<string, unknown>) => void;
+  shouldFocusPrompt?: boolean;
+  onProceed?: () => void;
+  onArchiveTask?: () => void;
+  onUnarchiveTask?: () => void;
+  onDeleteTask?: () => void;
 };
 ⋮----
-const renderLoading = (message: string) => (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-bg-primary to-bg-primary-light z-10">
-      <CgSpinner className="animate-spin w-8 h-8" />
-      <div className="mt-2 text-xs text-center text-text-primary">{message}</div>
-    </div>
-  );
+// Focus prompt field
 ⋮----
 const handleAddFiles = (filePaths: string[], readOnly = false) =>
 ⋮----
@@ -17523,14 +18245,12 @@ const handleModelChange = (modelsData: ModelsData | null) =>
 ⋮----
 const handleModeChange = (mode: Mode) =>
 ⋮----
+const handleMarkAsDone = () =>
+⋮----
 const runPrompt = (prompt: string) =>
 ⋮----
 // This submission is an edit of a previous message
 setEditingMessageIndex(null); // Clear editing state
-⋮----
-const handleSavePrompt = async (prompt: string) =>
-⋮----
-const handleEditLastUserMessage = (content?: string) =>
 ⋮----
 // eslint-disable-next-line no-console
 ⋮----
@@ -17540,31 +18260,29 @@ const handleRestartTask = () =>
 ⋮----
 const handleRedoLastUserPrompt = () =>
 ⋮----
-// Keep messages up to and excluding the one being redone
+const handleResumeTask = () =>
+⋮----
+const handleProceed = () =>
+⋮----
+const handleArchiveTask = () =>
+⋮----
+const handleUnarchiveTask = () =>
+⋮----
+const handleDeleteTask = () =>
 ⋮----
 const handleRemoveMessage = (messageToRemove: Message) =>
 ⋮----
-const handleAddTodo = async (name: string) =>
+} catch (error)
 ⋮----
 // eslint-disable-next-line no-console
 ⋮----
-const handleToggleTodo = async (name: string, completed: boolean) =>
+// eslint-disable-next-line no-console
 ⋮----
 // eslint-disable-next-line no-console
 ⋮----
-const handleUpdateTodo = async (name: string, updates: Partial<TodoItem>) =>
-⋮----
 // eslint-disable-next-line no-console
 ⋮----
-const handleDeleteTodo = async (name: string) =>
-⋮----
 // eslint-disable-next-line no-console
-⋮----
-const handleClearAllTodos = async () =>
-⋮----
-// eslint-disable-next-line no-console
-⋮----
-const handleTerminalViewResize = () =>
 ⋮----
 const handleSidebarResize = async (_, data: ResizeCallbackData) =>
 ⋮----
@@ -17574,6 +18292,8 @@ const handleCopyTerminalOutput = (output: string) =>
 ⋮----
 const handleAutoApproveChanged = (autoApprove: boolean) =>
 ⋮----
+return <LoadingOverlay message=
+⋮----
 <div className=
 ⋮----
 onToggleSidebar=
@@ -17582,8 +18302,6 @@ onToggleSidebar=
 ⋮----
 if (node?.container)
 setSearchContainer(node.container);
-⋮----
-height=
 ⋮----
 answerQuestion=
 ⋮----
@@ -18079,6 +18797,7 @@ type Props = {
   scrollToBottom?: () => void;
   onAutoApproveChanged?: (autoApprove: boolean) => void;
   showSettingsPage?: (pageId?: string, options?: Record<string, unknown>) => void;
+  showTaskInfo?: () => void;
 };
 ⋮----
 const setTextWithDispatch = (newText: string) =>
@@ -18301,6 +19020,7 @@ import {
   MEMORY_TOOL_DESCRIPTIONS,
   MEMORY_TOOL_GROUP_NAME,
   MEMORY_TOOL_LIST,
+  MEMORY_TOOL_UPDATE,
   MEMORY_TOOL_RETRIEVE,
   MEMORY_TOOL_STORE,
   SKILLS_TOOL_GROUP_NAME,
@@ -18797,6 +19517,84 @@ onChange=
 <Checkbox label=
 
 ================
+File: src/renderer/src/components/settings/HotkeyConfig.tsx
+================
+import { useEffect, useRef, useState, KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import { FaPlus, FaEdit, FaTimes } from 'react-icons/fa';
+import { clsx } from 'clsx';
+import { useRecordHotkeys } from 'react-hotkeys-hook';
+⋮----
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { Input } from '@/components/common/Input';
+import { IconButton } from '@/components/common/IconButton';
+⋮----
+type Props = {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  size?: 'md' | 'sm';
+};
+⋮----
+type RecordingDialogProps = {
+  onSave: (hotkey: string) => void;
+  onCancel: () => void;
+  existingHotkey?: string;
+};
+⋮----
+const handleConfirm = () =>
+⋮----
+title=
+⋮----
+// Parse the value into an array of shortcuts
+⋮----
+const handleAddShortcut = () =>
+⋮----
+const handleEditShortcut = (index: number) =>
+⋮----
+const handleClearShortcut = (index: number) =>
+⋮----
+// If only one shortcut exists, just clear it
+⋮----
+// Remove the shortcut at the specified index
+⋮----
+const handleSaveShortcut = (hotkey: string) =>
+⋮----
+// Edit existing shortcut
+⋮----
+// Add new shortcut
+⋮----
+const handleCancelRecording = () =>
+⋮----
+onClick=
+
+================
+File: src/renderer/src/components/settings/HotkeysSettings.tsx
+================
+import { useTranslation } from 'react-i18next';
+import { HotkeyConfig, SettingsData } from '@common/types';
+⋮----
+import { Section } from '../common/Section';
+⋮----
+import { HotkeyConfig as HotkeyConfigRow } from './HotkeyConfig';
+⋮----
+import { Button } from '@/components/common/Button';
+import { DEFAULT_HOTKEY_CONFIG } from '@/utils/hotkeys';
+⋮----
+type Props = {
+  settings: SettingsData;
+  setSettings: (settings: SettingsData) => void;
+};
+⋮----
+const handleChange = (category: keyof HotkeyConfig, key: string, value: string) =>
+⋮----
+const handleReset = () =>
+⋮----
+const renderHotkeyConfig = (category: keyof HotkeyConfig, key: string, label: string) =>
+⋮----
+return <HotkeyConfigRow key=
+
+================
 File: src/renderer/src/components/settings/LanguageSelector.tsx
 ================
 import { ReactCountryFlag } from 'react-country-flag';
@@ -18928,15 +19726,28 @@ label=
 ⋮----
 <span className=
 ⋮----
+onClick=
+⋮----
+await api.writeToClipboard(tunnelStatus.url!);
+⋮----
+// eslint-disable-next-line no-console
+console.error('Failed to copy URL:', error);
+⋮----
 tooltip=
+
+================
+File: src/renderer/src/components/settings/SettingsDialog.tsx
+================
+
 
 ================
 File: src/renderer/src/components/settings/SettingsPage.tsx
 ================
 import { ProjectData, ProviderProfile, SettingsData } from '@common/types';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isEqual } from 'lodash';
 import { useTranslation } from 'react-i18next';
+import { useHotkeys } from 'react-hotkeys-hook';
 ⋮----
 import { Settings } from '@/pages/Settings';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -18955,8 +19766,6 @@ type Props = {
 const loadProviders = async () =>
 ⋮----
 // eslint-disable-next-line no-console
-⋮----
-const handleCancel = () =>
 ⋮----
 // Updated to use settings.mcpServers directly
 ⋮----
@@ -18985,6 +19794,29 @@ const handleLanguageChange = (language: string) =>
 const handleZoomChange = (zoomLevel: number) =>
 ⋮----
 <ModalOverlayLayout title=
+
+================
+File: src/renderer/src/components/settings/TaskSettings.tsx
+================
+import { SettingsData } from '@common/types';
+import { useTranslation } from 'react-i18next';
+⋮----
+import { Checkbox } from '../common/Checkbox';
+import { Section } from '../common/Section';
+import { InfoIcon } from '../common/InfoIcon';
+⋮----
+type Props = {
+  settings: SettingsData;
+  setSettings: (settings: SettingsData) => void;
+};
+⋮----
+const handleSmartTaskStateChange = (checked: boolean) =>
+⋮----
+const handleAutoGenerateTaskNameChange = (checked: boolean) =>
+⋮----
+const handleShowTaskStateActionsChange = (checked: boolean) =>
+⋮----
+<Section title=
 
 ================
 File: src/renderer/src/components/settings/VoiceSettings.tsx
@@ -19458,14 +20290,14 @@ import { clsx } from 'clsx';
 type Props = {
   value: string;
   suggestions: string[];
-  onChange: (value: string, isFromSuggestion: boolean) => void;
+  onChange: (value: string, isFromSuggestion: boolean, isMultiSelect?: boolean) => void;
   placeholder?: string;
   className?: string;
   inputClassName?: string;
   rightElement?: ReactNode;
   autoFocus?: boolean;
   onPaste?: (pastedText: string) => Promise<boolean>;
-  onSubmit?: () => void;
+  onSubmit?: (isMultiSelect?: boolean) => void;
 };
 ⋮----
 const handleKeyDown = (e: React.KeyboardEvent) =>
@@ -19477,11 +20309,6 @@ const handleOnPaste = async (e: ClipboardEvent<HTMLInputElement>) =>
 // If onPaste didn't handle the paste (returned false), manually insert the text
 ⋮----
 zIndex: 1000, // Ensure it's above other elements
-⋮----
-onChange(suggestion, true);
-setShowSuggestions(false);
-⋮----
-<div className=
 ⋮----
 className=
 ⋮----
@@ -19646,6 +20473,7 @@ File: src/renderer/src/contexts/ApiContext.tsx
 ================
 import { createContext, useMemo, ReactNode, useContext } from 'react';
 import { ApplicationAPI } from '@common/api';
+import { HotkeysProvider } from 'react-hotkeys-hook';
 ⋮----
 import { BrowserApi } from '@/api/browser-api';
 ⋮----
@@ -19698,6 +20526,8 @@ const handleContextMenu = (params: Electron.ContextMenuParams) =>
 // Handle input elements
 ⋮----
 // Handle other elements with text content
+⋮----
+// eslint-disable-next-line no-console
 
 ================
 File: src/renderer/src/contexts/ModelProviderContext.tsx
@@ -19794,12 +20624,14 @@ export const useSettings = () =>
 File: src/renderer/src/contexts/TaskContext.tsx
 ================
 import React, { createContext, ReactNode, startTransition, useCallback, useContext, useEffect, useState } from 'react';
+import { usePrevious } from '@reactuses/core';
 import {
   AutocompletionData,
   ClearTaskData,
   CommandOutputData,
   ContextFile,
   ContextFilesUpdatedData,
+  DefaultTaskState,
   LogData,
   ModelsData,
   QuestionData,
@@ -19832,7 +20664,6 @@ import { useApi } from '@/contexts/ApiContext';
 export interface TaskState {
   loading: boolean;
   loaded: boolean;
-  processing: boolean;
   messages: Message[];
   tokensInfo: TokensInfoData | null;
   question: QuestionData | null;
@@ -19844,26 +20675,27 @@ export interface TaskState {
   aiderModelsData: ModelsData | null;
 }
 ⋮----
-export interface TaskContextType {
-  getTaskState: (taskId: string, loadIfNotLoaded?: boolean) => TaskState | null;
+interface TaskEventSubscriberProps {
+  taskId: string;
+  baseDir: string;
+  task: TaskData;
+  updateTaskState: (taskId: string, updates: Partial<TaskState>) => void;
   clearSession: (taskId: string, messagesOnly: boolean) => void;
-  restartTask: (taskId: string) => void;
-  setMessages: (taskId: string, updateMessages: (prevState: Message[]) => Message[]) => void;
+  setQuestion: (taskId: string, question: QuestionData | null) => void;
   setTodoItems: (taskId: string, updateTodoItems: (prev: TodoItem[]) => TodoItem[]) => void;
-  setAiderModelsData: (taskId: string, modelsData: ModelsData | null) => void;
-  answerQuestion: (taskId: string, answer: string) => void;
-  interruptResponse: (taskId: string) => void;
-  updateTaskAgentProfile: (taskId: string, agentProfileId: string, provider: string, model: string) => void;
-  refreshAllFiles: (taskId: string, useGit?: boolean) => Promise<void>;
+  setMessages: (taskId: string, updateMessages: (prevState: Message[]) => Message[]) => void;
 }
 ⋮----
-// eslint-disable-next-line no-console
-⋮----
-// setEditingMessageIndex(null);
-⋮----
-const subscribeForTaskEvents = (taskId: string) =>
-⋮----
-const setProcessing = (processing: boolean) =>
+const TaskEventSubscriber: React.FC<TaskEventSubscriberProps> = ({
+  taskId,
+  baseDir,
+  task,
+  updateTaskState,
+  clearSession,
+  setQuestion,
+  setTodoItems,
+  setMessages,
+}) =>
 ⋮----
 const setAiderTotalCost = (aiderTotalCost: number) =>
 ⋮----
@@ -19922,6 +20754,23 @@ const handleContextFilesUpdated = (
 const handleUpdateAiderModels = (data: ModelsData) =>
 ⋮----
 // eslint-disable-next-line no-console
+⋮----
+export interface TaskContextType {
+  getTaskState: (taskId: string, loadIfNotLoaded?: boolean) => TaskState | null;
+  clearSession: (taskId: string, messagesOnly: boolean) => void;
+  restartTask: (taskId: string) => void;
+  setMessages: (taskId: string, updateMessages: (prevState: Message[]) => Message[]) => void;
+  setTodoItems: (taskId: string, updateTodoItems: (prev: TodoItem[]) => TodoItem[]) => void;
+  setAiderModelsData: (taskId: string, modelsData: ModelsData | null) => void;
+  answerQuestion: (taskId: string, answer: string) => void;
+  interruptResponse: (taskId: string) => void;
+  updateTaskAgentProfile: (taskId: string, agentProfileId: string, provider: string, model: string) => void;
+  refreshAllFiles: (taskId: string, useGit?: boolean) => Promise<void>;
+}
+⋮----
+// eslint-disable-next-line no-console
+⋮----
+// setEditingMessageIndex(null);
 
 ================
 File: src/renderer/src/hooks/useAudioRecorder.ts
@@ -19986,6 +20835,16 @@ const listener = (event: MouseEvent) =>
 // Check if the click is outside all provided refs
 ⋮----
 // Ignore clicks on null refs or if the ref doesn't contain the target
+
+================
+File: src/renderer/src/hooks/useConfiguredHotkeys.ts
+================
+import { useMemo } from 'react';
+⋮----
+import { useSettings } from '@/contexts/SettingsContext';
+import { getHotkeys } from '@/utils/hotkeys';
+⋮----
+export const useConfiguredHotkeys = () =>
 
 ================
 File: src/renderer/src/hooks/useCustomCommands.ts
@@ -20166,7 +21025,7 @@ const checkScreenSize = () =>
 ================
 File: src/renderer/src/hooks/useScrollingPaused.ts
 ================
-import { useCallback, useState } from 'react';
+import { TouchEvent, UIEvent, useCallback, useState, WheelEvent } from 'react';
 ⋮----
 interface UseScrollingPausedOptions {
   onAutoScroll: () => void;
@@ -20179,10 +21038,10 @@ interface UseScrollingPausedReturn {
   setScrollingPaused: (paused: boolean) => void;
   scrollToBottom: () => void;
   eventHandlers: {
-    onScroll: (e: React.UIEvent<HTMLDivElement>) => void;
-    onWheel: (e: React.WheelEvent<HTMLDivElement>) => void;
-    onTouchStart: (e: React.TouchEvent<HTMLDivElement>) => void;
-    onTouchMove: (e: React.TouchEvent<HTMLDivElement>) => void;
+    onScroll: (e: UIEvent<HTMLDivElement>) => void;
+    onWheel: (e: WheelEvent<HTMLDivElement>) => void;
+    onTouchStart: (e: TouchEvent<HTMLDivElement>) => void;
+    onTouchMove: (e: TouchEvent<HTMLDivElement>) => void;
   };
 }
 ⋮----
@@ -20228,6 +21087,47 @@ navigateToElement(0); // Navigate to the first result
 // eslint-disable-next-line
 ⋮----
 <div className=
+
+================
+File: src/renderer/src/hooks/useTypingAnimation.ts
+================
+import { useEffect, useState } from 'react';
+⋮----
+export const useTypingAnimation = (text: string, typingSpeed: number = 60, pauseDuration: number = 3000) =>
+⋮----
+// When we reach end, wait before restarting
+⋮----
+// Letter-by-letter typing animation
+
+================
+File: src/renderer/src/hooks/useUserMessageNavigation.tsx
+================
+import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { MdKeyboardArrowDown, MdKeyboardArrowUp } from 'react-icons/md';
+import { useTranslation } from 'react-i18next';
+import { clsx } from 'clsx';
+⋮----
+import { IconButton } from '@/components/common/IconButton';
+⋮----
+interface UseUserMessageNavigationProps {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  userMessageIds: string[];
+  scrollToMessageByElement?: (element: HTMLElement) => void;
+  alwaysVisible?: boolean;
+  buttonClassName?: string;
+}
+⋮----
+interface NavigationButton {
+  key: string;
+  icon: ReactNode;
+  onClick: () => void;
+  tooltip: string;
+  ariaLabel: string;
+  disabled: boolean;
+  className: string;
+}
+⋮----
+const handleScroll = () =>
 
 ================
 File: src/renderer/src/hooks/useVersions.ts
@@ -20640,6 +21540,93 @@ type Props = {
 };
 
 ================
+File: src/renderer/src/icons/SyntheticIcon.tsx
+================
+type Props = {
+  width?: number;
+  height?: number;
+  className?: string;
+};
+⋮----
+export const SyntheticIcon = ({ width = 64, height = 64, className }: Props) => (
+  <div
+    aria-label="Synthetic"
+    className={`flex items-center justify-center rounded-md relative ${className || ''}`}
+    style={{
+      backgroundColor: 'white',
+      height: `${height}px`,
+      width: `${width}px`,
+    }}
+  >
+    <svg
+      width={width * 0.8}
+      height={height * 0.8}
+      viewBox="0 0 54 54"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+    >
+      <path
+        d="M27.8517 26.3314C27.8439 26.1451 27.8371 25.9303 27.8337 25.692C27.8203 24.7571 27.8545 23.4581 28.0457 22.0052C28.4322 19.0688 29.4394 15.6521 31.8222 13.2693C34.205 10.8867 37.6212 9.87992 40.5575 9.49344C42.0107 9.30219 43.3101 9.26734 44.245 9.28076C44.4829 9.28417 44.6968 9.29231 44.883 9.30009C44.8908 9.48595 44.8975 9.69933 44.901 9.93676C44.9144 10.8716 44.8795 12.171 44.6883 13.6242C44.3018 16.5605 43.2958 19.9773 40.9131 22.3602C38.5303 24.743 35.1129 25.7495 32.1765 26.136C30.7234 26.3272 29.4246 26.3614 28.4897 26.348C28.2518 26.3446 28.0378 26.3392 27.8517 26.3314Z"
+        stroke="black"
+        strokeWidth="2.5"
+      ></path>
+      <path
+        d="M27.8916 27.1592C28.0179 27.0219 28.165 26.8653 28.3311 26.6943C28.9826 26.0238 29.9253 25.1295 31.0879 24.2373C33.4375 22.4342 36.5658 20.7305 39.9355 20.7305C43.3051 20.7306 46.4327 22.4343 48.7822 24.2373C49.945 25.1296 50.8885 26.0238 51.54 26.6943C51.7059 26.865 51.8514 27.022 51.9775 27.1592C51.8516 27.2961 51.7055 27.4518 51.54 27.6221C50.8885 28.2926 49.945 29.1868 48.7822 30.0791C46.4327 31.8821 43.3052 33.5868 39.9355 33.5869C36.5657 33.5869 33.4375 31.8822 31.0879 30.0791C29.9252 29.1868 28.9826 28.2926 28.3311 27.6221C28.1652 27.4514 28.0177 27.2963 27.8916 27.1592Z"
+        stroke="black"
+        strokeWidth="2.5"
+      ></path>
+      <path
+        d="M27.4459 27.6915C27.6323 27.6837 27.8471 27.677 28.0854 27.6736C29.0202 27.6602 30.3192 27.6943 31.7721 27.8856C34.7085 28.272 38.1253 29.2793 40.5081 31.6621C42.8906 34.0448 43.8974 37.4611 44.2839 40.3973C44.4752 41.8505 44.51 43.1499 44.4966 44.0848C44.4932 44.3228 44.485 44.5367 44.4773 44.7229C44.2914 44.7306 44.078 44.7374 43.8406 44.7408C42.9057 44.7542 41.6063 44.7194 40.1531 44.5281C37.2168 44.1417 33.8 43.1356 31.4172 40.753C29.0343 38.3701 28.0278 34.9528 27.6413 32.0163C27.4501 30.5633 27.4159 29.2644 27.4294 28.3296C27.4328 28.0916 27.4381 27.8777 27.4459 27.6915Z"
+        stroke="black"
+        strokeWidth="2.5"
+      ></path>
+      <path
+        d="M26.916 28.1289C27.0533 28.2552 27.2099 28.4023 27.3809 28.5684C28.0514 29.2199 28.9457 30.1626 29.8379 31.3252C31.641 33.6748 33.3447 36.8031 33.3447 40.1728C33.3446 43.5424 31.6409 46.67 29.8379 49.0195C28.9456 50.1823 28.0514 51.1258 27.3809 51.7773C27.2102 51.9432 27.0532 52.0887 26.916 52.2148C26.7791 52.0889 26.6234 51.9428 26.4531 51.7773C25.7826 51.1258 24.8884 50.1823 23.9961 49.0195C22.1931 46.67 20.4884 43.5426 20.4883 40.1728C20.4883 36.803 22.193 33.6748 23.9961 31.3252C24.8884 30.1625 25.7826 29.2199 26.4531 28.5684C26.6238 28.4025 26.7789 28.255 26.916 28.1289Z"
+        stroke="black"
+        strokeWidth="2.5"
+      ></path>
+      <path
+        d="M26.2147 27.691C26.2225 27.8774 26.2293 28.0922 26.2327 28.3305C26.2461 29.2653 26.2119 30.5643 26.0207 32.0172C25.6342 34.9536 24.627 38.3704 22.2442 40.7532C19.8614 43.1357 16.4452 44.1425 13.5089 44.529C12.0557 44.7203 10.7563 44.7551 9.82145 44.7417C9.58349 44.7383 9.36957 44.7301 9.1834 44.7224C9.17564 44.5365 9.16886 44.3231 9.16545 44.0857C9.15203 43.1508 9.18689 41.8514 9.37813 40.3982C9.76458 37.4619 10.7706 34.0451 13.1533 31.6623C15.5361 29.2795 18.9535 28.2729 21.8899 27.8865C23.343 27.6952 24.6419 27.6611 25.5767 27.6745C25.8146 27.6779 26.0286 27.6833 26.2147 27.691Z"
+        stroke="black"
+        strokeWidth="2.5"
+      ></path>
+      <path
+        d="M25.7021 27.1602C25.5759 27.2974 25.4288 27.4541 25.2627 27.625C24.6111 28.2955 23.6684 29.1899 22.5059 30.082C20.1562 31.8851 17.028 33.5889 13.6582 33.5889C10.2886 33.5887 7.16105 31.885 4.81153 30.082C3.64873 29.1897 2.70529 28.2955 2.05372 27.625C1.88786 27.4543 1.74236 27.2973 1.61622 27.1602C1.74215 27.0232 1.88824 26.8676 2.05372 26.6973C2.70527 26.0267 3.64874 25.1326 4.81153 24.2402C7.16108 22.4372 10.2885 20.7326 13.6582 20.7324C17.0281 20.7324 20.1562 22.4371 22.5059 24.2402C23.6686 25.1325 24.6112 26.0268 25.2627 26.6973C25.4285 26.8679 25.576 27.023 25.7021 27.1602Z"
+        stroke="black"
+        strokeWidth="2.5"
+      ></path>
+      <path
+        d="M25.7338 25.9813C25.5474 25.9891 25.3326 25.9959 25.0943 25.9993C24.1595 26.0127 22.8605 25.9785 21.4076 25.7873C18.4712 25.4008 15.0544 24.3936 12.6716 22.0108C10.2891 19.628 9.28226 16.2118 8.89579 13.2755C8.70453 11.8223 8.66969 10.5229 8.6831 9.58806C8.68652 9.35009 8.69466 9.13618 8.70244 8.95C8.8883 8.94224 9.10168 8.93546 9.33911 8.93205C10.274 8.91863 11.5734 8.95349 13.0266 9.14473C15.9629 9.53118 19.3797 10.5372 21.7625 12.9199C24.1454 15.3027 25.1519 18.7201 25.5383 21.6565C25.7296 23.1096 25.7638 24.4085 25.7503 25.3433C25.7469 25.5812 25.7415 25.7952 25.7338 25.9813Z"
+        stroke="black"
+        strokeWidth="2.5"
+      ></path>
+      <path
+        d="M26.9121 25.7031C26.7748 25.5769 26.6182 25.4298 26.4473 25.2637C25.7768 24.6121 24.8824 23.6694 23.9902 22.5068C22.1872 20.1572 20.4834 17.029 20.4834 13.6592C20.4835 10.2896 22.1873 7.16203 23.9902 4.8125C24.8826 3.6497 25.7767 2.70627 26.4473 2.05469C26.618 1.88883 26.775 1.74333 26.9121 1.61719C27.049 1.74312 27.2047 1.88921 27.375 2.05469C28.0455 2.70624 28.9397 3.64971 29.832 4.8125C31.6351 7.16206 33.3397 10.2895 33.3398 13.6592C33.3398 17.029 31.6351 20.1572 29.832 22.5068C28.9398 23.6695 28.0455 24.6121 27.375 25.2637C27.2043 25.4295 27.0492 25.577 26.9121 25.7031Z"
+        stroke="black"
+        strokeWidth="2.5"
+      ></path>
+    </svg>
+    <svg
+      width={width * 0.25}
+      height={height * 0.25}
+      viewBox="0 0 19 19"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+    >
+      <path
+        d="M8.56067 1.3799L10.4618 1.34671C10.5492 1.34522 10.6286 1.38935 10.6747 1.45923L10.7093 1.53774L11.045 2.92076C11.1559 3.37707 11.4798 3.75232 11.9152 3.92819C12.3419 4.10041 12.8251 4.0605 13.2183 3.82145L14.3036 3.16178C14.3771 3.11703 14.4662 3.1144 14.5407 3.14983L14.6099 3.19745L15.9965 4.57385C16.0577 4.63461 16.0825 4.72126 16.0659 4.80217L16.035 4.88085L15.4788 5.80573C15.2386 6.20505 15.1867 6.68631 15.3299 7.12299L15.4034 7.30728C15.5966 7.71593 15.9524 8.02086 16.3793 8.15073L16.5666 8.19532L17.4238 8.34639C17.5414 8.36729 17.628 8.46852 17.6302 8.58794L17.6642 10.533C17.6662 10.6479 17.5891 10.7499 17.478 10.7794L16.3785 11.0721C15.9508 11.1859 15.5956 11.4767 15.399 11.8666L15.3249 12.0398C15.1648 12.4858 15.2187 12.9804 15.4714 13.3812L16.0028 14.2246C16.0497 14.2991 16.0532 14.3908 16.0168 14.4666L15.9672 14.5358L14.5394 15.9448C14.4825 16.0008 14.4038 16.025 14.3277 16.0139L14.2531 15.9908L13.2136 15.4747C12.8594 15.2989 12.4528 15.2697 12.0801 15.388L11.9219 15.4474C11.5639 15.6067 11.2838 15.8977 11.1361 16.2562L11.0812 16.4134L10.7617 17.5217C10.7312 17.6271 10.6352 17.7006 10.5255 17.7026L8.58735 17.7364C8.46855 17.7385 8.36456 17.6565 8.33878 17.5405L8.08316 16.3817L8.03422 16.2078C7.91462 15.8694 7.67485 15.5859 7.36105 15.4118L7.19756 15.3345L7.04329 15.2815C6.73077 15.1941 6.39776 15.2128 6.0968 15.3342L5.94955 15.4032L4.77293 16.0371C4.6979 16.0774 4.60969 16.0756 4.53755 16.0373L4.47222 15.9877L3.13752 14.5596C3.0776 14.4954 3.05736 14.4064 3.07873 14.3252L3.11353 14.2484L3.7373 13.3331C3.98342 12.9717 4.04895 12.5208 3.923 12.109L3.85746 11.9353L3.78169 11.7911C3.61486 11.5129 3.35814 11.2998 3.05423 11.1865L2.89807 11.1374L1.49728 10.7907C1.38749 10.7635 1.30969 10.6659 1.30755 10.5528L1.27503 8.6898C1.27334 8.58474 1.33722 8.49154 1.43207 8.45363L1.47385 8.44118L2.69615 8.18641C3.14512 8.09283 3.52318 7.80066 3.72943 7.39873L3.80738 7.2196C3.94662 6.83155 3.92084 6.40585 3.73992 6.04091L3.6523 5.8891L3.04806 4.9581C2.98255 4.85725 2.99751 4.72403 3.08453 4.64101L4.58516 3.20932C4.67146 3.12699 4.80459 3.11666 4.90217 3.18523L5.71797 3.75897C6.12951 4.04818 6.65895 4.11193 7.1274 3.92874C7.53749 3.76829 7.85309 3.43752 7.99657 3.02769L8.04812 2.84707L8.32092 1.57747C8.34533 1.46387 8.44449 1.38193 8.56067 1.3799Z"
+        fill="white"
+        stroke="black"
+        strokeWidth="1.5"
+      ></path>
+      <circle cx="9.46694" cy="9.5416" r="2.53895" transform="rotate(-1 9.46694 9.5416)" fill="white" stroke="black" strokeWidth="1.5"></circle>
+    </svg>
+  </div>
+);
+
+================
 File: src/renderer/src/icons/VertexAiIcon.tsx
 ================
 type Props = {
@@ -20689,11 +21676,13 @@ type Props = {
 File: src/renderer/src/pages/Home.tsx
 ================
 import { ProjectData } from '@common/types';
-import { useCallback, useEffect, useState } from 'react';
+import { Activity, startTransition, useCallback, useEffect, useOptimistic, useState } from 'react';
 import { MdBarChart, MdSettings, MdUpload } from 'react-icons/md';
 import { PiNotebookFill } from 'react-icons/pi';
 import { useTranslation } from 'react-i18next';
+import { useHotkeys } from 'react-hotkeys-hook';
 ⋮----
+import { useConfiguredHotkeys } from '@/hooks/useConfiguredHotkeys';
 import { UsageDashboard } from '@/components/usage/UsageDashboard';
 import { IconButton } from '@/components/common/IconButton';
 import { NoProjectsOpen } from '@/components/project/NoProjectsOpen';
@@ -20725,25 +21714,35 @@ const handleOpenSettings = (pageId: string) =>
 ⋮----
 const checkReleaseNotes = async () =>
 ⋮----
-// First TAB press - switch to previous tab
+// Close current project tab
 ⋮----
-// Subsequent TAB presses - cycle through tabs
+// Open new project dialog
+⋮----
+// Open usage dashboard
+⋮----
+// Open model library
+⋮----
+// Open settings
+⋮----
+// Close overlays on Escape
+⋮----
+// Switch to specific project tabs (Alt/Cmd + 1-9)
+⋮----
+// Ctrl+Tab cycling (forward)
+⋮----
+// Ctrl+Shift+Tab cycling (backward)
+⋮----
+// Reset Ctrl+Tab state on Control key up
+⋮----
+const handleKeyUp = (e: KeyboardEvent) =>
 ⋮----
 const handleAddProject = async (baseDir: string) =>
-⋮----
-const handleCloseProject = async (projectBaseDir: string) =>
 ⋮----
 const handleCloseOtherProjects = async (baseDir: string) =>
 ⋮----
 const handleCloseAllProjects = async () =>
 ⋮----
-const renderProjectPanels = ()
-⋮----
-const getUpdateTooltip = () =>
-⋮----
 return ''; // Should not happen if showUpdateIcon is true
-⋮----
-const handleCloseReleaseNotes = async () =>
 ⋮----
 setShowSettingsInfo({
                     pageId: 'about',
@@ -20758,6 +21757,8 @@ setShowSettingsInfo({
 <OpenProjectDialog onClose=
 ⋮----
 onClose=
+⋮----
+<UsageDashboard onClose=
 ⋮----
 
 ================
@@ -20825,8 +21826,9 @@ import { Font, ProjectData, SettingsData, Theme, AgentProfile, ProviderProfile }
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
-import { FaChevronDown, FaChevronRight, FaCog, FaInfoCircle, FaRobot, FaServer, FaBrain, FaMicrophone } from 'react-icons/fa';
+import { FaChevronDown, FaChevronRight, FaCog, FaInfoCircle, FaRobot, FaServer, FaBrain, FaMicrophone, FaKeyboard } from 'react-icons/fa';
 import { MdTerminal } from 'react-icons/md';
+import { LuClipboardList } from 'react-icons/lu';
 ⋮----
 import { getPathBasename } from '@/utils/path-utils';
 import { useApi } from '@/contexts/ApiContext';
@@ -20837,6 +21839,8 @@ import { AboutSettings } from '@/components/settings/AboutSettings';
 import { ServerSettings } from '@/components/settings/ServerSettings';
 import { MemorySettings } from '@/components/settings/MemorySettings';
 import { VoiceSettings } from '@/components/settings/VoiceSettings';
+import { HotkeysSettings } from '@/components/settings/HotkeysSettings';
+import { TaskSettings } from '@/components/settings/TaskSettings';
 ⋮----
 type Props = {
   settings: SettingsData;
@@ -20855,7 +21859,7 @@ type Props = {
   setProviders?: (providers: ProviderProfile[]) => void;
 };
 ⋮----
-type PageId = 'general' | 'aider' | 'agents' | 'memory' | 'voice' | 'server' | 'about';
+type PageId = 'general' | 'aider' | 'agents' | 'tasks' | 'memory' | 'voice' | 'hotkeys' | 'server' | 'about';
 ⋮----
 interface SidebarItem {
   id: string;
@@ -22728,11 +23732,11 @@ File: src/renderer/src/themes/themes.scss
 ================
 File: src/renderer/src/types/message.ts
 ================
-import { Group, PromptContext, TokensInfoData, UsageReportData } from '@common/types';
+import { Group, PromptContext, TaskData, TokensInfoData, UsageReportData } from '@common/types';
 ⋮----
 export interface Message {
   id: string;
-  type: 'user' | 'response' | 'loading' | 'reflected-message' | 'command-output' | 'log' | 'tokens-info' | 'tool' | 'group';
+  type: 'user' | 'response' | 'loading' | 'reflected-message' | 'command-output' | 'log' | 'tokens-info' | 'tool' | 'group' | 'task-info';
   content: string;
   promptContext?: PromptContext;
   children?: Message[];
@@ -22779,6 +23783,7 @@ export interface ToolMessage extends Message {
   args: Record<string, unknown>;
   content: string; // Empty while executing, contains result when complete
   usageReport?: UsageReportData;
+  finished?: boolean;
 }
 ⋮----
 content: string; // Empty while executing, contains result when complete
@@ -22806,6 +23811,14 @@ export interface GroupMessage extends Message {
 }
 ⋮----
 export const isGroupMessage = (message: Message): message is GroupMessage =>
+⋮----
+export interface TaskInfoMessage extends Message {
+  type: 'task-info';
+  task: TaskData;
+  messageCount: number;
+}
+⋮----
+export const isTaskInfoMessage = (message: Message): message is TaskInfoMessage =>
 
 ================
 File: src/renderer/src/utils/agents.ts
@@ -22875,6 +23888,13 @@ export const highlightWithRefractor = (code: string, language: string): ReactNod
 // refractor.highlight returns a Root node
 ⋮----
 // eslint-disable-next-line no-console
+
+================
+File: src/renderer/src/utils/hotkeys.ts
+================
+import { HotkeyConfig } from '@common/types';
+⋮----
+export const getHotkeys = (config?: HotkeyConfig) =>
 
 ================
 File: src/renderer/src/utils/indexedDB.ts
@@ -22959,6 +23979,17 @@ File: src/renderer/src/utils/string-utils.ts
 import type { TFunction } from 'i18next';
 ⋮----
 export const formatHumanReadable = (t: TFunction, value: number): string =>
+
+================
+File: src/renderer/src/utils/task-utils.ts
+================
+import { TaskData } from '@common/types';
+⋮----
+export const getSortedVisibleTasks = (tasks: TaskData[], showArchived: boolean = false, searchQuery: string = ''): TaskData[] =>
+⋮----
+// Pinned tasks come first
+⋮----
+// Then sort by updatedAt
 
 ================
 File: src/renderer/src/voice/gemini.ts
@@ -23251,6 +24282,7 @@ File: src/renderer/index.html
       content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: file:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' http: https: ws: wss:;"
     />
     <link rel="stylesheet" href="/src/fonts.css">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
   </head>
 
   <body>
@@ -23482,7 +24514,7 @@ File: package.json
 ================
 {
   "name": "aider-desk",
-  "version": "0.46.0-dev",
+  "version": "0.48.0-dev",
   "description": "Aider desktop application wrapper",
   "main": "./out/main/index.js",
   "author": "Hotovo",
@@ -23493,7 +24525,7 @@ File: package.json
   },
   "scripts": {
     "format": "prettier --write .",
-    "lint": "eslint src --fix",
+    "lint": "eslint src --fix --cache",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck:mcp": "tsc --noEmit -p tsconfig.mcp-server.json --composite false",

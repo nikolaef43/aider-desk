@@ -49,6 +49,7 @@ const COMMANDS = [
   '/read-only',
   '/clear',
   '/web',
+  '/task-info',
   '/undo',
   '/test',
   '/map-refresh',
@@ -127,6 +128,7 @@ type Props = {
   scrollToBottom?: () => void;
   onAutoApproveChanged?: (autoApprove: boolean) => void;
   showSettingsPage?: (pageId?: string, options?: Record<string, unknown>) => void;
+  showTaskInfo?: () => void;
 };
 
 export const PromptField = forwardRef<PromptFieldRef, Props>(
@@ -165,6 +167,7 @@ export const PromptField = forwardRef<PromptFieldRef, Props>(
       scrollToBottom,
       onAutoApproveChanged,
       showSettingsPage,
+      showTaskInfo,
     }: Props,
     ref,
   ) => {
@@ -401,6 +404,11 @@ export const PromptField = forwardRef<PromptFieldRef, Props>(
               openModelSelector?.(args);
             }
             break;
+          case '/task-info': {
+            prepareForNextPrompt();
+            showTaskInfo?.();
+            break;
+          }
           case '/web': {
             const commandArgs = text.replace('/web', '').trim();
             const firstSpaceIndex = commandArgs.indexOf(' ');

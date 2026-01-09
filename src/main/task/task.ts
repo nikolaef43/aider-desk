@@ -10,6 +10,7 @@ import {
   ContextAssistantMessage,
   ContextFile,
   ContextMessage,
+  DefaultTaskState,
   EditFormat,
   FileEdit,
   LogData,
@@ -23,6 +24,7 @@ import {
   ResponseChunkData,
   ResponseCompletedData,
   SettingsData,
+  TaskContext,
   TaskStateData,
   TaskData,
   TodoItem,
@@ -42,14 +44,6 @@ import { isEqual } from 'lodash';
 import type { SimpleGit } from 'simple-git';
 
 import { getAllFiles, isValidProjectFile } from '@/utils/file-system';
-import {
-  getCompactConversationPrompt,
-  getConflictResolutionPrompt,
-  getConflictResolutionSystemPrompt,
-  getGenerateCommitMessagePrompt,
-  getInitProjectPrompt,
-  getSystemPrompt,
-} from '@/agent/prompts';
 import {
   AIDER_DESK_TASKS_DIR,
   AIDER_DESK_TODOS_FILE,
@@ -76,6 +70,7 @@ import { WorktreeManager, GitError } from '@/worktrees';
 import { MemoryManager } from '@/memory/memory-manager';
 import { getElectronApp } from '@/app';
 import { HookManager } from '@/hooks/hook-manager';
+import { PromptsManager } from '@/prompts';
 
 export const INTERNAL_TASK_ID = 'internal';
 
@@ -91,7 +86,7 @@ export class Task {
   private runPromptResolves: ((value: ResponseCompletedData[]) => void)[] = [];
   private autocompletionAllFiles: string[] | null = null;
   private agentRunResolves: (() => void)[] = [];
-  private git: SimpleGit;
+  private git: SimpleGit | null = null;
 
   private readonly taskDataPath: string;
   private readonly contextManager: ContextManager;
@@ -114,6 +109,7 @@ export class Task {
     private readonly worktreeManager: WorktreeManager,
     private readonly memoryManager: MemoryManager,
     public readonly hookManager: HookManager,
+    private readonly promptsManager: PromptsManager,
     initialTaskData?: Partial<TaskData>,
   ) {
     this.task = {
@@ -131,8 +127,15 @@ export class Task {
     };
     this.taskDataPath = path.join(this.project.baseDir, AIDER_DESK_TASKS_DIR, this.taskId, 'settings.json');
     this.contextManager = new ContextManager(this, this.taskId);
-    this.agent = new Agent(this.store, this.agentProfileManager, this.mcpManager, this.modelManager, this.telemetryManager, this.memoryManager);
-    this.git = simpleGit(this.project.baseDir);
+    this.agent = new Agent(
+      this.store,
+      this.agentProfileManager,
+      this.mcpManager,
+      this.modelManager,
+      this.telemetryManager,
+      this.memoryManager,
+      this.promptsManager,
+    );
     this.aiderManager = new AiderManager(this, this.store, this.modelManager, this.eventManager, () => this.connectors);
 
     void this.loadTaskData();
@@ -194,9 +197,8 @@ export class Task {
     // Migrate missing task-level settings from project settings
     await this.migrateFromProjectSettings();
 
-    if (await fileExists(this.getTaskDir())) {
-      this.git = simpleGit(this.getTaskDir());
-    }
+    // Migrate task state based on last message in context
+    await this.migrateTaskState();
   }
 
   /**
@@ -216,6 +218,60 @@ export class Task {
       this.task.weakModelLocked = projectSettings.weakModelLocked ?? false;
 
       await this.saveTask(undefined, false);
+    }
+  }
+
+  /**
+   * @deprecated Migrate task state based on last message in context
+   */
+  private async migrateTaskState() {
+    // Skip if state is already set
+    if (this.task.state) {
+      return;
+    }
+
+    const contextPath = path.join(this.getProjectDir(), AIDER_DESK_TASKS_DIR, this.taskId, 'context.json');
+
+    if (!(await fileExists(contextPath))) {
+      logger.debug('No existing task context found for state migration', {
+        baseDir: this.project.baseDir,
+        taskId: this.taskId,
+      });
+      return;
+    }
+
+    try {
+      const content = await fs.readFile(contextPath, 'utf8');
+      const contextData = JSON.parse(content) as TaskContext;
+      const messages = contextData.contextMessages || [];
+
+      if (messages.length === 0) {
+        logger.debug('No messages found in context for state migration', {
+          baseDir: this.project.baseDir,
+          taskId: this.taskId,
+        });
+        return;
+      }
+
+      const lastMessage = messages[messages.length - 1];
+
+      // Set state based on last message role
+      const newState = lastMessage.role === MessageRole.User ? DefaultTaskState.Todo : DefaultTaskState.ReadyForReview;
+
+      logger.info('Migrated task state', {
+        baseDir: this.project.baseDir,
+        taskId: this.taskId,
+        lastMessageRole: lastMessage.role,
+        newState,
+      });
+
+      await this.saveTask({ state: newState }, false);
+    } catch (error) {
+      logger.error('Failed to migrate task state', {
+        baseDir: this.project.baseDir,
+        taskId: this.taskId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -334,7 +390,9 @@ export class Task {
         this.task.workingMode = 'local';
       }
     }
-    this.git = simpleGit(this.getTaskDir());
+    if (await fileExists(this.getTaskDir())) {
+      this.git = simpleGit(this.getTaskDir());
+    }
 
     await this.loadContext();
     await Promise.all([this.aiderManager.start(), this.updateContextInfo()]);
@@ -354,7 +412,7 @@ export class Task {
 
     await this.init();
 
-    const mode = this.store.getProjectSettings(this.project.baseDir).currentMode;
+    const mode = this.getCurrentMode();
     return {
       messages: this.contextManager.getContextMessagesData(),
       files: await this.getContextFiles(mode === 'agent'),
@@ -438,6 +496,10 @@ export class Task {
   }
 
   public async close(clearContext = false, cleanupEmptyTask = true) {
+    if (!this.initialized) {
+      return;
+    }
+
     logger.info('Closing task...', {
       baseDir: this.project.baseDir,
       taskId: this.taskId,
@@ -446,7 +508,7 @@ export class Task {
     if (clearContext) {
       this.eventManager.sendClearTask(this.project.baseDir, this.taskId, true, true);
     }
-    this.interruptResponse(false);
+    this.interruptResponse();
     this.resolveAgentRunPromises();
 
     await this.aiderManager.kill();
@@ -514,7 +576,7 @@ export class Task {
     }
   }
 
-  public async runPrompt(prompt: string, mode: Mode = 'code'): Promise<ResponseCompletedData[]> {
+  public async runPrompt(prompt: string, mode: Mode = 'code', addToInputHistory = true): Promise<ResponseCompletedData[]> {
     if (this.currentQuestion) {
       if (this.answerQuestion('n', prompt)) {
         logger.debug('Processed by the answerQuestion function.');
@@ -538,7 +600,9 @@ export class Task {
       mode,
     });
 
-    await this.project.addToInputHistory(prompt);
+    if (addToInputHistory) {
+      await this.project.addToInputHistory(prompt);
+    }
 
     const promptContext: PromptContext = {
       id: uuidv4(),
@@ -564,13 +628,15 @@ export class Task {
     }
   }
 
-  public async savePromptOnly(prompt: string): Promise<void> {
+  public async savePromptOnly(prompt: string, addInputHistory = true): Promise<void> {
     logger.info('Saving prompt without execution:', {
       baseDir: this.project.baseDir,
       prompt,
     });
 
-    await this.project.addToInputHistory(prompt);
+    if (addInputHistory) {
+      await this.project.addToInputHistory(prompt);
+    }
 
     const promptContext: PromptContext = {
       id: uuidv4(),
@@ -599,14 +665,17 @@ export class Task {
       logger.info('Aider prompt blocked by hook');
       return [];
     }
-    prompt = aiderHookResult.event.prompt;
-    mode = aiderHookResult.event.mode;
-    await this.aiderManager.waitForStart();
 
     await this.saveTask({
       name: this.task.name || this.getTaskNameFromPrompt(prompt),
       startedAt: new Date().toISOString(),
+      state: DefaultTaskState.InProgress,
     });
+
+    prompt = aiderHookResult.event.prompt;
+    mode = aiderHookResult.event.mode;
+
+    await this.aiderManager.waitForStart();
 
     // Detect files in prompt and ask to add them to context (only for aider modes)
     await this.detectAndAddFilesFromPrompt(prompt);
@@ -650,16 +719,19 @@ export class Task {
     await this.hookManager.trigger('onAiderPromptFinished', { responses }, this, this.project);
     await this.hookManager.trigger('onPromptFinished', { responses }, this, this.project);
 
-    await this.saveTask({
-      completedAt: new Date().toISOString(),
-    });
+    if (this.task.state === DefaultTaskState.InProgress) {
+      await this.saveTask({
+        completedAt: new Date().toISOString(),
+        state: DefaultTaskState.ReadyForReview,
+      });
+    }
 
     return responses;
   }
 
   public async runPromptInAgent(
     profile: AgentProfile,
-    prompt: string,
+    prompt: string | null,
     promptContext: PromptContext = { id: uuidv4() },
     contextMessages?: ContextMessage[],
     contextFiles?: ContextFile[],
@@ -667,14 +739,17 @@ export class Task {
     waitForCurrentAgentToFinish = true,
   ): Promise<ResponseCompletedData[]> {
     await this.hookManager.trigger('onPromptStarted', { prompt, mode: 'agent' }, this, this.project);
-    await this.saveTask({
-      name: this.task.name || this.getTaskNameFromPrompt(prompt),
-      startedAt: new Date().toISOString(),
-    });
 
     if (waitForCurrentAgentToFinish) {
       await this.waitForCurrentAgentToFinish();
     }
+
+    await this.saveTask({
+      name: this.task.name || this.getTaskNameFromPrompt(prompt || ''),
+      startedAt: new Date().toISOString(),
+      state: DefaultTaskState.InProgress,
+    });
+
     const agentMessages = await this.agent.runAgent(this, profile, prompt, promptContext, contextMessages, contextFiles, systemPrompt);
     this.resolveAgentRunPromises();
     if (agentMessages.length > 0) {
@@ -686,21 +761,127 @@ export class Task {
       });
     }
 
+    await this.hookManager.trigger('onPromptFinished', { responses: [] }, this, this.project);
+
+    if (this.task.state === DefaultTaskState.InProgress) {
+      // Determine task state based on the last assistant message
+      const settings = this.store.getSettings();
+      let state: string | null = DefaultTaskState.ReadyForReview;
+
+      if (settings.taskSettings.smartTaskState) {
+        state = await this.determineTaskState(agentMessages);
+      }
+
+      await this.saveTask({
+        completedAt: new Date().toISOString(),
+        state: state || DefaultTaskState.ReadyForReview,
+      });
+    }
+
     void this.sendRequestContextInfo();
     void this.sendWorktreeIntegrationStatusUpdated();
     this.notifyIfEnabled('Prompt finished', 'Your Agent has finished the task.');
 
-    await this.hookManager.trigger('onPromptFinished', { responses: [] }, this, this.project);
-
-    await this.saveTask({
-      completedAt: new Date().toISOString(),
-    });
-
     return [];
   }
 
-  private getTaskNameFromPrompt(prompt: string) {
-    return prompt.trim().split(' ').slice(0, 5).join(' ');
+  private getTaskNameFromPrompt(prompt: string): string {
+    const fallbackName = prompt.trim().split(' ').slice(0, 5).join(' ');
+
+    const settings = this.store.getSettings();
+    if (settings.taskSettings.autoGenerateTaskName) {
+      this.generateTaskNameInBackground(prompt)
+        .then((taskName) => {
+          if (taskName) {
+            void this.saveTask({ name: taskName });
+          } else {
+            void this.saveTask({ name: fallbackName });
+          }
+        })
+        .catch((error) => {
+          logger.warn('Failed to generate task name:', error);
+          void this.saveTask({ name: fallbackName });
+        });
+      return '<<generating>>';
+    } else {
+      return fallbackName;
+    }
+  }
+
+  private async generateTaskNameInBackground(prompt: string): Promise<string | null> {
+    const agentProfile = await this.getTaskAgentProfile();
+    if (agentProfile) {
+      const maxPromptLength = 1000;
+      const taskName = await this.agent.generateText(
+        agentProfile,
+        this.promptsManager.getGenerateTaskNamePrompt(this),
+        `Generate a concise task name for this request:\n\n${prompt.length > maxPromptLength ? prompt.substring(0, maxPromptLength) + '...' : prompt}\n\nOnly answer with the task name, nothing else.`,
+      );
+      logger.info('Generated task name:', { taskName });
+      return taskName.trim();
+    }
+
+    return null;
+  }
+
+  private async determineTaskState(resultMessages: ContextMessage[]): Promise<string | null> {
+    // Find the last assistant message from result messages
+    const lastAssistantMessage = [...resultMessages].reverse().find((msg) => msg.role === MessageRole.Assistant) as ContextAssistantMessage | undefined;
+
+    if (!lastAssistantMessage) {
+      logger.debug('No assistant message found for task state determination');
+      return null;
+    }
+
+    // Extract reasoning and text from the last assistant message
+    const reasoningText = Array.isArray(lastAssistantMessage.content) && lastAssistantMessage.content.find((part) => part.type === 'reasoning')?.text;
+    const contentText = extractTextContent(lastAssistantMessage.content);
+
+    if (!contentText && !reasoningText) {
+      logger.debug('No content found in last assistant message for task state determination');
+      return null;
+    }
+
+    // Create a user message wrapping the last assistant message information
+    let wrappedMessage = "Based on the agent's last response, determine the appropriate task state.\n\n";
+    if (reasoningText) {
+      wrappedMessage += `<agent-reasoning>\n${reasoningText}</agent-reasoning>\n\n`;
+    }
+    wrappedMessage += `<agent-response>\n${contentText}</agent-response>`;
+
+    try {
+      const agentProfile = await this.getTaskAgentProfile();
+      if (!agentProfile) {
+        logger.debug('No agent profile found for task state determination');
+        return null;
+      }
+
+      this.addLogMessage('loading', 'Updating task state...');
+
+      const answer = await this.agent.generateText(agentProfile, this.promptsManager.getUpdateTaskStatePrompt(this), wrappedMessage);
+
+      logger.info('Determining task state:', {
+        baseDir: this.project.baseDir,
+        taskId: this.taskId,
+      });
+
+      const trimmedAnswer = answer.trim();
+      const validStates = [DefaultTaskState.MoreInfoNeeded, DefaultTaskState.ReadyForImplementation, DefaultTaskState.ReadyForReview];
+
+      if (validStates.includes(trimmedAnswer as DefaultTaskState)) {
+        logger.info(`Determined task state: ${trimmedAnswer}`);
+
+        return trimmedAnswer;
+      } else if (trimmedAnswer !== 'NONE') {
+        logger.warn(`Invalid task state returned: ${trimmedAnswer}. Expected one of: ${validStates.join(', ')}, or NONE`, {
+          answer: trimmedAnswer,
+        });
+      }
+    } catch (error) {
+      logger.error('Error determining task state:', error);
+    }
+
+    return null;
   }
 
   public async runSubagent(
@@ -727,7 +908,10 @@ export class Task {
     prompt: string,
     promptContext: PromptContext = { id: uuidv4() },
     mode?: Mode,
-    messages: { role: MessageRole; content: string }[] = this.contextManager.toConnectorMessages(),
+    messages: {
+      role: MessageRole;
+      content: string;
+    }[] = this.contextManager.toConnectorMessages(),
     files: ContextFile[] = this.contextManager.getContextFiles(),
     options?: AiderRunOptions,
   ): Promise<ResponseCompletedData[]> {
@@ -995,7 +1179,7 @@ export class Task {
   public async addToGit(absolutePath: string, promptContext?: PromptContext): Promise<void> {
     try {
       // Add the new file to git staging
-      await this.git.add(absolutePath);
+      await this.git?.add(absolutePath);
       await this.updateAutocompletionData(undefined, true);
     } catch (gitError) {
       const gitErrorMessage = gitError instanceof Error ? gitError.message : String(gitError);
@@ -1005,7 +1189,7 @@ export class Task {
   }
 
   private async sendContextFilesUpdated() {
-    const mode = this.store.getProjectSettings(this.project.baseDir).currentMode;
+    const mode = this.getCurrentMode();
     const allFiles = await this.getContextFiles(mode === 'agent');
 
     this.eventManager.sendContextFilesUpdated(this.project.baseDir, this.taskId, allFiles);
@@ -1045,7 +1229,7 @@ export class Task {
       sendToConnectors = false;
       try {
         // Get the Git root directory to handle monorepo scenarios
-        const gitRoot = await this.git.revparse(['--show-toplevel']);
+        const gitRoot = (await this.git?.revparse(['--show-toplevel'])) || this.project.baseDir;
         const gitRootDir = simpleGit(gitRoot);
 
         // Get the current HEAD commit hash before undoing
@@ -1100,7 +1284,10 @@ export class Task {
   public async askQuestion(questionData: QuestionData, awaitAnswer = true): Promise<[string, string | undefined]> {
     const hookResult = await this.hookManager.trigger('onQuestionAsked', { question: questionData }, this, this.project);
     if (hookResult.result && typeof hookResult.result === 'string') {
-      logger.info('Question answered by hook', { question: questionData.text, answer: hookResult.result });
+      logger.info('Question answered by hook', {
+        question: questionData.text,
+        answer: hookResult.result,
+      });
       return [hookResult.result, undefined];
     }
 
@@ -1281,6 +1468,31 @@ export class Task {
       const matchedFiles: string[] = [];
       const seen = new Set<string>();
 
+      // First pass: match files by full path
+      const matchedFileNames = new Set<string>();
+      for (const filePath of addableFiles) {
+        if (!isValidProjectFile(filePath, this.getTaskDir())) {
+          continue;
+        }
+
+        const normalizedPath = filePath.replace(/\\/g, '/');
+
+        if (normalizedPrompt.includes(normalizedPath.toLowerCase())) {
+          matchedFiles.push(normalizedPath);
+          seen.add(normalizedPath);
+          matchedFileNames.add(path.posix.basename(normalizedPath));
+        }
+      }
+
+      // Check if any context file matches a path in the prompt and track those names
+      for (const contextFile of contextFiles) {
+        const normalizedContextPath = contextFile.path.replace(/\\/g, '/');
+        if (normalizedPrompt.includes(normalizedContextPath.toLowerCase())) {
+          matchedFileNames.add(path.posix.basename(normalizedContextPath));
+        }
+      }
+
+      // Second pass: match files by filename only (if not already matched by path)
       for (const filePath of addableFiles) {
         if (!isValidProjectFile(filePath, this.getTaskDir())) {
           continue;
@@ -1289,10 +1501,18 @@ export class Task {
         const normalizedPath = filePath.replace(/\\/g, '/');
         const fileName = path.posix.basename(normalizedPath);
 
-        const isPathMatch = normalizedPrompt.includes(normalizedPath.toLowerCase());
-        const isNameMatch = fileName.length > 0 && normalizedPrompt.includes(fileName.toLowerCase());
+        // Skip if already matched by path
+        if (seen.has(normalizedPath)) {
+          continue;
+        }
 
-        if ((isPathMatch || isNameMatch) && !seen.has(normalizedPath)) {
+        // Skip if filename was already matched by path (prevents false positives)
+        if (matchedFileNames.has(fileName)) {
+          continue;
+        }
+
+        // Only match by filename if it's not empty and appears in the prompt
+        if (fileName.length > 0 && normalizedPrompt.includes(fileName.toLowerCase())) {
           matchedFiles.push(normalizedPath);
           seen.add(normalizedPath);
         }
@@ -1415,6 +1635,20 @@ export class Task {
       logger.debug('Could not read global rules directory', { error });
     }
 
+    // Include AGENTS.md from project root if it exists
+    const agentsFilePath = path.join(this.project.baseDir, 'AGENTS.md');
+    try {
+      await fs.access(agentsFilePath);
+      ruleFiles.push({
+        path: 'AGENTS.md',
+        readOnly: true,
+        source: 'project-rule',
+      });
+    } catch (error) {
+      // AGENTS.md doesn't exist, which is fine
+      logger.debug('AGENTS.md not found in project root', { error });
+    }
+
     // Get project rule files
     try {
       const projectRulesDir = path.join(this.project.baseDir, AIDER_DESK_PROJECT_RULES_DIR);
@@ -1455,23 +1689,12 @@ export class Task {
           });
         } catch (error) {
           // Rule file doesn't exist or can't be accessed
-          logger.debug('Could not access agent rule file', { ruleFilePath, error });
+          logger.debug('Could not access agent rule file', {
+            ruleFilePath,
+            error,
+          });
         }
       }
-    }
-
-    // Include AGENTS.md from project root if it exists
-    const agentsFilePath = path.join(this.project.baseDir, 'AGENTS.md');
-    try {
-      await fs.access(agentsFilePath);
-      ruleFiles.push({
-        path: 'AGENTS.md',
-        readOnly: true,
-        source: 'project-rule',
-      });
-    } catch (error) {
-      // AGENTS.md doesn't exist, which is fine
-      logger.debug('AGENTS.md not found in project root', { error });
     }
 
     return ruleFiles;
@@ -1588,7 +1811,7 @@ export class Task {
     }
   }
 
-  public interruptResponse(addMessage = true) {
+  public interruptResponse() {
     logger.info('Interrupting response:', {
       baseDir: this.project.baseDir,
       taskId: this.taskId,
@@ -1600,11 +1823,15 @@ export class Task {
     }
 
     this.findMessageConnectors('interrupt-response').forEach((connector) => connector.sendInterruptResponseMessage());
-    if (addMessage) {
-      this.addLogMessage('warning', 'messages.interrupted');
-    }
     this.agent.interrupt();
     this.promptFinished();
+
+    if (this.initialized && this.task.state === DefaultTaskState.InProgress) {
+      void this.saveTask({
+        state: DefaultTaskState.Interrupted,
+        interruptedAt: new Date().toISOString(),
+      });
+    }
   }
 
   public applyEdits(edits: FileEdit[]) {
@@ -1621,6 +1848,7 @@ export class Task {
     usageReport?: UsageReportData,
     promptContext?: PromptContext,
     saveToDb = true,
+    finished = !!response,
   ) {
     logger.debug('Sending tool message:', {
       id,
@@ -1631,6 +1859,7 @@ export class Task {
       response: typeof response === 'string' ? response.substring(0, 100) : response,
       usageReport,
       promptContext,
+      finished,
     });
     const data: ToolData = {
       type: 'tool',
@@ -1643,6 +1872,7 @@ export class Task {
       response,
       usageReport,
       promptContext,
+      finished,
     };
 
     if (response && usageReport && saveToDb) {
@@ -1693,6 +1923,7 @@ export class Task {
     };
 
     this.eventManager.sendUserMessage(data);
+    void this.saveTask({ state: DefaultTaskState.Todo });
   }
 
   public async removeLastMessage() {
@@ -1708,13 +1939,15 @@ export class Task {
       mode,
       hasUpdatedPrompt: !!updatedPrompt,
     });
-    const originalLastUserMessageContent = this.contextManager.removeLastUserMessage();
 
+    const originalLastUserMessageContent = this.contextManager.removeLastUserMessage();
     const promptToRun = updatedPrompt ?? originalLastUserMessageContent;
 
     if (promptToRun) {
-      logger.info('Found message content to run, reloading and re-running prompt.');
-      await this.reloadConnectorMessages(); // This sends 'clear-task' which truncates UI messages
+      logger.info('Found message content to run, reloading and re-running prompt.', {
+        remainingMessagesCount: (await this.contextManager.getContextMessages()).length,
+      });
+      await this.contextManager.loadMessages(await this.contextManager.getContextMessages());
       await this.updateContextInfo();
 
       // No need to await runPrompt here, let it run in the background
@@ -1722,6 +1955,48 @@ export class Task {
     } else {
       logger.warn('Could not find a previous user message to redo or an updated prompt to run.');
     }
+  }
+
+  public async resumeTask() {
+    logger.info('Resuming task:', {
+      baseDir: this.project.baseDir,
+      taskId: this.taskId,
+    });
+
+    const mode = this.getCurrentMode();
+
+    if (mode === 'agent') {
+      const profile = await this.getTaskAgentProfile();
+      if (!profile) {
+        logger.error('No active Agent profile found for resume');
+        this.addLogMessage('error', 'No active Agent profile found');
+        return;
+      }
+
+      logger.info('Resuming agent task...');
+      this.addLogMessage('loading', 'Resuming task...');
+
+      void this.runPromptInAgent(profile, null);
+    } else {
+      // In other modes, check if last message is user
+      const contextMessages = await this.contextManager.getContextMessages();
+      const lastMessage = contextMessages[contextMessages.length - 1];
+
+      if (lastMessage && lastMessage.role === MessageRole.User) {
+        // Last message is from user, redo it
+        logger.info('Last message is from user, redoing prompt');
+        this.addLogMessage('loading', 'Resuming task...');
+        void this.redoLastUserPrompt(mode);
+      } else {
+        // Last message is not from user, send "Continue" to aider
+        logger.info('Last message is not from user, sending Continue prompt');
+        void this.runPrompt('Continue', mode, false);
+      }
+    }
+  }
+
+  private getCurrentMode() {
+    return this.task.currentMode || this.store.getProjectSettings(this.project.baseDir).currentMode || 'agent';
   }
 
   private async reloadConnectorMessages() {
@@ -1786,7 +2061,7 @@ export class Task {
       const agentMessages = await this.agent.runAgent(
         this,
         compactConversationAgentProfile,
-        getCompactConversationPrompt(customInstructions),
+        this.promptsManager.getCompactConversationPrompt(this, customInstructions),
         promptContext,
         contextMessages,
         [],
@@ -1807,7 +2082,14 @@ export class Task {
         await this.contextManager.loadMessages(await this.contextManager.getContextMessages());
       }
     } else {
-      const responses = await this.sendPromptToAider(getCompactConversationPrompt(customInstructions), undefined, 'ask', undefined, [], undefined);
+      const responses = await this.sendPromptToAider(
+        this.promptsManager.getCompactConversationPrompt(this, customInstructions),
+        undefined,
+        'ask',
+        undefined,
+        [],
+        undefined,
+      );
 
       // add messages to session
       this.contextManager.setContextMessages([userMessage], false);
@@ -1835,7 +2117,7 @@ export class Task {
   }
 
   async updateContextInfo(checkContextFilesIncluded = false, checkRepoMapIncluded = false) {
-    this.sendRequestContextInfo();
+    void this.sendRequestContextInfo();
     await this.updateAgentEstimatedTokens(checkContextFilesIncluded, checkRepoMapIncluded);
   }
 
@@ -2075,7 +2357,7 @@ export class Task {
       };
 
       // Run the agent with the modified profile
-      await this.runPromptInAgent(initProjectRulesAgentProfile, getInitProjectPrompt());
+      await this.runPromptInAgent(initProjectRulesAgentProfile, this.promptsManager.getInitProjectPrompt(this));
 
       // Check if the AGENTS.md file was created
       const projectAgentsPath = path.join(this.project.baseDir, 'AGENTS.md');
@@ -2204,7 +2486,7 @@ ${error.stderr}`,
     };
 
     this.addUserMessage(promptContext.id, prompt);
-    this.addLogMessage('loading');
+    this.addLogMessage('loading', 'Executing custom command...');
 
     try {
       if (mode === 'agent') {
@@ -2215,7 +2497,7 @@ ${error.stderr}`,
           return;
         }
 
-        const systemPrompt = await getSystemPrompt(this.store.getSettings(), this, profile, command.autoApprove ?? this.task.autoApprove);
+        const systemPrompt = await this.promptsManager.getSystemPrompt(this.store.getSettings(), this, profile, command.autoApprove ?? this.task.autoApprove);
 
         const messages = command.includeContext === false ? [] : undefined;
         const contextFiles = command.includeContext === false ? [] : undefined;
@@ -2235,7 +2517,7 @@ ${error.stderr}`,
       return;
     }
 
-    this.interruptResponse(false);
+    this.interruptResponse();
     await this.close(false, false);
     await this.init();
     if (this.task.createdAt) {
@@ -2343,10 +2625,12 @@ ${error.stderr}`,
             try {
               effectiveCommitMessage = await this.agent.generateText(
                 agentProfile,
-                getGenerateCommitMessagePrompt(),
+                this.promptsManager.getGenerateCommitMessagePrompt(this),
                 `Generate a concise conventional commit message for these changes:\n\n${changesDiff}\n\nOnly answer with the commit message, nothing else.`,
               );
-              logger.info('Generated commit message:', { commitMessage: effectiveCommitMessage });
+              logger.info('Generated commit message:', {
+                commitMessage: effectiveCommitMessage,
+              });
             } catch (error) {
               logger.warn('Failed to generate AI commit message, falling back to task name:', error);
               // Fallback to task name if AI generation fails
@@ -2646,13 +2930,13 @@ ${error.stderr}`,
         ]);
 
         try {
-          const prompt = getConflictResolutionPrompt(filePath, {
+          const prompt = this.promptsManager.getConflictResolutionPrompt(this, filePath, {
             ...ctx,
             basePath: ctx.base ? basePath : undefined,
             oursPath: ctx.ours ? oursPath : undefined,
             theirsPath: ctx.theirs ? theirsPath : undefined,
           });
-          const systemPrompt = getConflictResolutionSystemPrompt();
+          const systemPrompt = this.promptsManager.getConflictResolutionSystemPrompt(this);
 
           await this.agent.runAgent(this, conflictProfile, prompt, promptContext, [], [{ path: filePath }], systemPrompt);
 
@@ -2664,7 +2948,9 @@ ${error.stderr}`,
           this.addLogMessage('info', `Resolved ${filePath}`, true, promptContext);
 
           // Stage the file
-          await execWithShellPath(`git add -- "${filePath}"`, { cwd: worktreePath });
+          await execWithShellPath(`git add -- "${filePath}"`, {
+            cwd: worktreePath,
+          });
         } finally {
           // Clean up temp files
           await Promise.allSettled([fs.unlink(basePath).catch(() => {}), fs.unlink(oursPath).catch(() => {}), fs.unlink(theirsPath).catch(() => {})]);

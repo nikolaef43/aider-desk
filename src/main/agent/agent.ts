@@ -37,22 +37,22 @@ import { Client as McpSdkClient } from '@modelcontextprotocol/sdk/client/index.j
 // @ts-expect-error istextorbinary is not typed properly
 import { isBinary } from 'istextorbinary';
 import { fileTypeFromBuffer } from 'file-type';
-import { TOOL_GROUP_NAME_SEPARATOR } from '@common/tools';
+import { HELPERS_TOOL_GROUP_NAME, TOOL_GROUP_NAME_SEPARATOR } from '@common/tools';
 
 import { createPowerToolset } from './tools/power';
 import { createTodoToolset } from './tools/todo';
 import { createTasksToolset } from './tools/tasks';
-import { getSystemPrompt } from './prompts';
 import { createAiderToolset } from './tools/aider';
 import { createHelpersToolset } from './tools/helpers';
 import { createMemoryToolset } from './tools/memory';
 import { createSkillsToolset } from './tools/skills';
 import { MCP_CLIENT_TIMEOUT, McpManager } from './mcp-manager';
 import { ApprovalManager } from './tools/approval-manager';
-import { ANSWER_RESPONSE_START_TAG, extractPromptContextFromToolResult, THINKING_RESPONSE_STAR_TAG } from './utils';
+import { ANSWER_RESPONSE_START_TAG, extractPromptContextFromToolResult, findLastUserMessage, THINKING_RESPONSE_STAR_TAG } from './utils';
 import { extractReasoningMiddleware } from './middlewares/extract-reasoning-middleware';
 
 import { MemoryManager } from '@/memory/memory-manager';
+import { PromptsManager } from '@/prompts';
 import { AIDER_DESK_PROJECT_RULES_DIR } from '@/constants';
 import { Task } from '@/task';
 import { Store } from '@/store';
@@ -77,6 +77,7 @@ export class Agent {
     private readonly modelManager: ModelManager,
     private readonly telemetryManager: TelemetryManager,
     private readonly memoryManager: MemoryManager,
+    private readonly promptsManager: PromptsManager,
   ) {}
 
   private async getFilesContentForPrompt(files: ContextFile[], task: Task): Promise<{ textFileContents: string[]; imageParts: ImagePart[] }> {
@@ -537,7 +538,7 @@ export class Agent {
   async runAgent(
     task: Task,
     profile: AgentProfile,
-    prompt: string,
+    prompt: string | null,
     promptContext?: PromptContext,
     initialContextMessages?: ContextMessage[],
     initialContextFiles?: ContextFile[],
@@ -554,22 +555,25 @@ export class Agent {
     const contextMessages = initialContextMessages ?? (await task.getContextMessages());
     const contextFiles = initialContextFiles ?? (await task.getContextFiles());
 
-    const userRequestMessage: ContextUserMessage = {
-      id: promptContext?.id || uuidv4(),
-      role: 'user',
-      content: prompt,
-      promptContext,
-    };
+    const userRequestMessage: ContextUserMessage | null = prompt
+      ? {
+          id: promptContext?.id || uuidv4(),
+          role: 'user',
+          content: prompt,
+          promptContext,
+        }
+      : null;
 
     const settings = this.store.getSettings();
     const projectProfiles = this.agentProfileManager.getProjectProfiles(task.getProjectDir());
+    const resultMessages: ContextMessage[] = userRequestMessage ? [userRequestMessage] : [];
 
     const providers = this.store.getProviders();
     const provider = providers.find((p) => p.id === profile.provider);
     if (!provider) {
       logger.error(`Provider ${profile.provider} not found`);
       task.addLogMessage('error', 'Selected model is not configured. Select another model and try again.', true, promptContext);
-      return [userRequestMessage];
+      return resultMessages;
     }
 
     this.telemetryManager.captureAgentRun(profile, task.task);
@@ -604,7 +608,6 @@ export class Agent {
     const providerParameters = this.modelManager.getProviderParameters(provider, profile.model);
 
     const messages = await this.prepareMessages(task, profile, contextMessages, contextFiles);
-    const resultMessages: ContextMessage[] = [userRequestMessage];
     const initialUserRequestMessageIndex = messages.length - contextMessages.length;
 
     // add user message
@@ -645,7 +648,7 @@ export class Agent {
       });
 
       if (!systemPrompt) {
-        systemPrompt = await getSystemPrompt(this.store.getSettings(), task, profile);
+        systemPrompt = await this.promptsManager.getSystemPrompt(this.store.getSettings(), task, profile);
       }
 
       // repairToolCall function that attempts to repair tool calls
@@ -741,6 +744,42 @@ export class Agent {
         }
       };
 
+      // Get the model to use its temperature and max output tokens settings
+      const modelSettings = this.modelManager.getModel(profile.provider, profile.model);
+      const effectiveTemperature = profile.temperature ?? modelSettings?.temperature;
+      const effectiveMaxOutputTokens = profile.maxTokens ?? modelSettings?.maxOutputTokens;
+
+      logger.info('Parameters:', {
+        model: model.modelId,
+        temperature: effectiveTemperature,
+        maxOutputTokens: effectiveMaxOutputTokens,
+        minTimeBetweenToolCalls: profile.minTimeBetweenToolCalls,
+        ...providerParameters,
+      });
+
+      const getBaseModelCallParams = () => {
+        return {
+          providerOptions,
+          model: wrapLanguageModel({
+            model,
+            middleware: extractReasoningMiddleware({
+              tagName: 'think',
+            }),
+          }),
+          system: systemPrompt,
+          messages: optimizeMessages(task, profile, projectProfiles, initialUserRequestMessageIndex, messages, cacheControl),
+          tools: toolSet,
+          abortSignal: effectiveAbortSignal,
+          maxOutputTokens: effectiveMaxOutputTokens,
+          maxRetries: 5,
+          temperature: effectiveTemperature,
+          experimental_telemetry: {
+            isEnabled: true,
+          },
+          ...providerParameters,
+        };
+      };
+
       let iterationCount = 0;
       let retryCount = 0;
 
@@ -787,7 +826,7 @@ export class Agent {
         await this.compactMessagesIfNeeded(
           task,
           profile,
-          userRequestMessage,
+          userRequestMessage || findLastUserMessage(contextMessages)!,
           contextMessages,
           contextFiles,
           messages,
@@ -796,59 +835,17 @@ export class Agent {
           effectiveAbortSignal,
         );
 
-        // Get the model to use its temperature and max output tokens settings
-        const modelSettings = this.modelManager.getModel(profile.provider, profile.model);
-        const effectiveTemperature = profile.temperature ?? modelSettings?.temperature;
-        const effectiveMaxOutputTokens = profile.maxTokens ?? modelSettings?.maxOutputTokens;
-
-        logger.info('Parameters:', {
-          model: model.modelId,
-          temperature: effectiveTemperature,
-          maxOutputTokens: effectiveMaxOutputTokens,
-          minTimeBetweenToolCalls: profile.minTimeBetweenToolCalls,
-          ...providerParameters,
-        });
-
         if (this.modelManager.isStreamingDisabled(provider, profile.model)) {
           logger.debug('Streaming disabled, using generateText');
           await generateText({
-            providerOptions,
-            model,
-            system: systemPrompt,
-            messages: optimizeMessages(profile, projectProfiles, initialUserRequestMessageIndex, messages, cacheControl),
-            tools: toolSet,
-            abortSignal: effectiveAbortSignal,
-            maxOutputTokens: effectiveMaxOutputTokens,
-            maxRetries: 5,
-            temperature: effectiveTemperature,
-            experimental_telemetry: {
-              isEnabled: true,
-            },
-            ...providerParameters,
+            ...getBaseModelCallParams(),
             onStepFinish,
             experimental_repairToolCall: repairToolCall,
           });
         } else {
           logger.debug('Streaming enabled, using streamText');
           const result = streamText({
-            providerOptions,
-            model: wrapLanguageModel({
-              model,
-              middleware: extractReasoningMiddleware({
-                tagName: 'think',
-              }),
-            }),
-            system: systemPrompt,
-            messages: optimizeMessages(profile, projectProfiles, initialUserRequestMessageIndex, messages, cacheControl, task.task),
-            tools: toolSet,
-            abortSignal: effectiveAbortSignal,
-            maxOutputTokens: effectiveMaxOutputTokens,
-            maxRetries: 5,
-            temperature: effectiveTemperature,
-            experimental_telemetry: {
-              isEnabled: true,
-            },
-            ...providerParameters,
+            ...getBaseModelCallParams(),
             onError: ({ error }) => {
               if (effectiveAbortSignal?.aborted) {
                 return;
@@ -890,7 +887,7 @@ export class Agent {
                   });
                   currentTextResponse += chunk.text;
                 }
-              } else if (chunk.type === 'reasoning-delta' && chunk.text.trim()) {
+              } else if (chunk.type === 'reasoning-delta') {
                 if (!hasReasoning) {
                   await task.processResponseMessage({
                     id: currentResponseId,
@@ -936,7 +933,7 @@ export class Agent {
         }
 
         messages.push(...responseMessages);
-        resultMessages.push(...responseMessages);
+        resultMessages.push(...this.filterResultMessages(responseMessages));
 
         if (effectiveAbortSignal?.aborted) {
           logger.info('Prompt aborted by user (inside loop)');
@@ -1007,6 +1004,26 @@ export class Agent {
     }
 
     return resultMessages;
+  }
+
+  private filterResultMessages(resultMessages: ContextMessage[]) {
+    return resultMessages.filter((message) => {
+      if (message.role === 'tool' && message.id.startsWith(`${HELPERS_TOOL_GROUP_NAME}${TOOL_GROUP_NAME_SEPARATOR}`)) {
+        return false;
+      }
+      if (message.role === 'assistant') {
+        if (
+          Array.isArray(message.content) &&
+          message.content.some(
+            (content) => content.type === 'tool-call' && content.toolName.startsWith(`${HELPERS_TOOL_GROUP_NAME}${TOOL_GROUP_NAME_SEPARATOR}`),
+          )
+        ) {
+          return false;
+        }
+        return true;
+      }
+      return true;
+    });
   }
 
   private async prepareMessages(task: Task, profile: AgentProfile, contextMessages: ModelMessage[], contextFiles: ContextFile[]): Promise<ModelMessage[]> {
@@ -1083,7 +1100,7 @@ export class Agent {
 
       const messages = await this.prepareMessages(task, profile, await task.getContextMessages(), await task.getContextFiles());
       const toolSet = await this.getAvailableTools(task, profile, provider);
-      const systemPrompt = await getSystemPrompt(this.store.getSettings(), task, profile);
+      const systemPrompt = await this.promptsManager.getSystemPrompt(this.store.getSettings(), task, profile);
 
       const cacheControl = this.modelManager.getCacheControl(profile, provider.provider);
 
@@ -1091,6 +1108,7 @@ export class Agent {
       const userRequestMessageIndex = lastUserIndex >= 0 ? lastUserIndex : 0;
 
       const optimizedMessages = optimizeMessages(
+        task,
         profile,
         this.agentProfileManager.getProjectProfiles(task.getProjectDir()),
         userRequestMessageIndex,
@@ -1178,15 +1196,22 @@ export class Agent {
       await task.processResponseMessage(message);
     }
 
-    if (toolResults) {
-      // Process successful tool results *after* sending text/reasoning and handling errors
-      for (const toolResult of toolResults) {
-        const [serverName, toolName] = extractServerNameToolName(toolResult.toolName);
-        const toolPromptContext = extractPromptContextFromToolResult(toolResult.output) ?? promptContext;
+    // Process successful tool results *after* sending text/reasoning and handling errors
+    for (let i = 0; i < toolResults.length; i++) {
+      const toolResult = toolResults[i];
+      const [serverName, toolName] = extractServerNameToolName(toolResult.toolName);
+      const toolPromptContext = extractPromptContextFromToolResult(toolResult.output) ?? promptContext;
 
-        // Update the existing tool message with the result
-        task.addToolMessage(toolResult.toolCallId, serverName, toolName, toolResult.input, JSON.stringify(toolResult.output), usageReport, toolPromptContext);
-      }
+      // Update the existing tool message with the result
+      task.addToolMessage(
+        toolResult.toolCallId,
+        serverName,
+        toolName,
+        toolResult.input,
+        JSON.stringify(toolResult.output),
+        i === toolResults.length - 1 ? usageReport : undefined, // Only add usage report to the last tool message
+        toolPromptContext,
+      );
     }
 
     if (!abortSignal?.aborted) {
@@ -1227,7 +1252,8 @@ export class Agent {
     promptContext?: PromptContext,
     abortSignal?: AbortSignal,
   ) {
-    const { contextCompactingThreshold = 0 } = this.store.getProjectSettings(task.getProjectDir());
+    const contextCompactingThreshold =
+      task.task.contextCompactingThreshold ?? this.store.getProjectSettings(task.getProjectDir())?.contextCompactingThreshold ?? 0;
     const usageReport = resultMessages[resultMessages.length - 1]?.usageReport;
     const maxTokens = this.modelManager.getModel(profile.provider, profile.model)?.maxInputTokens;
 

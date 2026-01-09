@@ -30,6 +30,7 @@ import {
   MEMORY_TOOL_LIST,
   MEMORY_TOOL_RETRIEVE,
   MEMORY_TOOL_STORE,
+  MEMORY_TOOL_UPDATE,
 } from '@common/tools';
 
 export type LlmProviderName =
@@ -48,6 +49,7 @@ export type LlmProviderName =
   | 'openai-compatible'
   | 'openrouter'
   | 'requesty'
+  | 'synthetic'
   | 'vertex-ai'
   | 'zai-plan';
 
@@ -85,6 +87,7 @@ export const AVAILABLE_PROVIDERS: LlmProviderName[] = [
   'openai-compatible',
   'openrouter',
   'requesty',
+  'synthetic',
   'vertex-ai',
   'zai-plan',
 ];
@@ -240,6 +243,12 @@ export interface MinimaxProvider extends LlmProviderBase {
 }
 export const isMinimaxProvider = (provider: LlmProviderBase): provider is MinimaxProvider => provider.name === 'minimax';
 
+export interface SyntheticProvider extends LlmProviderBase {
+  name: 'synthetic';
+  apiKey: string;
+}
+export const isSyntheticProvider = (provider: LlmProviderBase): provider is SyntheticProvider => provider.name === 'synthetic';
+
 export type LlmProvider =
   | OpenAiProvider
   | AnthropicProvider
@@ -256,6 +265,7 @@ export type LlmProvider =
   | OllamaProvider
   | OpenRouterProvider
   | RequestyProvider
+  | SyntheticProvider
   | ZaiPlanProvider
   | MinimaxProvider;
 
@@ -267,10 +277,11 @@ export const DEFAULT_PROVIDER_MODELS: Partial<Record<LlmProviderName, string>> =
   deepseek: 'deepseek-chat',
   gemini: 'gemini-3-pro',
   groq: 'moonshotai/kimi-k2-instruct-0905',
-  openai: 'gpt-5.1-codex',
+  openai: 'gpt-5.2',
   openrouter: 'anthropic/claude-sonnet-4.5',
   requesty: 'anthropic/claude-sonnet-4-5',
-  'zai-plan': 'glm-4.6',
+  synthetic: 'anthropic/claude-sonnet-4.5',
+  'zai-plan': 'glm-4.7',
   minimax: 'MiniMax-M2',
 };
 
@@ -315,6 +326,7 @@ export const DEFAULT_AGENT_PROFILE: AgentProfile = {
     [`${MEMORY_TOOL_GROUP_NAME}${TOOL_GROUP_NAME_SEPARATOR}${MEMORY_TOOL_RETRIEVE}`]: ToolApprovalState.Always,
     [`${MEMORY_TOOL_GROUP_NAME}${TOOL_GROUP_NAME_SEPARATOR}${MEMORY_TOOL_DELETE}`]: ToolApprovalState.Never,
     [`${MEMORY_TOOL_GROUP_NAME}${TOOL_GROUP_NAME_SEPARATOR}${MEMORY_TOOL_LIST}`]: ToolApprovalState.Never,
+    [`${MEMORY_TOOL_GROUP_NAME}${TOOL_GROUP_NAME_SEPARATOR}${MEMORY_TOOL_UPDATE}`]: ToolApprovalState.Never,
   },
   toolSettings: {
     [`${POWER_TOOL_GROUP_NAME}${TOOL_GROUP_NAME_SEPARATOR}${POWER_TOOL_BASH}`]: {
@@ -612,6 +624,12 @@ export const getDefaultProviderParams = <T extends LlmProvider>(providerName: Ll
         useAutoCache: true,
         reasoningEffort: ReasoningEffort.None,
       } satisfies RequestyProvider;
+      break;
+    case 'synthetic':
+      provider = {
+        name: 'synthetic',
+        apiKey: '',
+      } satisfies SyntheticProvider;
       break;
     case 'zai-plan':
       provider = {

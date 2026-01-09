@@ -13,6 +13,7 @@ import {
   OpenRouterProvider,
   RequestyProvider,
   VertexAiProvider,
+  SyntheticProvider,
 } from '@common/agent';
 import { z } from 'zod';
 
@@ -175,6 +176,7 @@ export interface ToolData {
   response?: string;
   usageReport?: UsageReportData;
   promptContext?: PromptContext;
+  finished?: boolean;
 }
 
 export interface ContextFilesUpdatedData {
@@ -467,8 +469,52 @@ export const FONTS = [
 ] as const;
 export type Font = (typeof FONTS)[number];
 
+export interface HotkeyConfig {
+  projectHotkeys: {
+    closeProject: string;
+    newProject: string;
+    usageDashboard: string;
+    modelLibrary: string;
+    settings: string;
+    cycleNextProject: string;
+    cyclePrevProject: string;
+    switchProject1: string;
+    switchProject2: string;
+    switchProject3: string;
+    switchProject4: string;
+    switchProject5: string;
+    switchProject6: string;
+    switchProject7: string;
+    switchProject8: string;
+    switchProject9: string;
+  };
+  taskHotkeys: {
+    switchTask1: string;
+    switchTask2: string;
+    switchTask3: string;
+    switchTask4: string;
+    switchTask5: string;
+    switchTask6: string;
+    switchTask7: string;
+    switchTask8: string;
+    switchTask9: string;
+    focusPrompt: string;
+    newTask: string;
+    closeTask: string;
+  };
+  dialogHotkeys: {
+    browseFolder: string;
+  };
+}
+
 export enum MemoryEmbeddingProvider {
   SentenceTransformers = 'sentence-transformers',
+}
+
+export interface TaskSettings {
+  smartTaskState: boolean;
+  autoGenerateTaskName: boolean;
+  showTaskStateActions: boolean;
 }
 
 export interface MemoryConfig {
@@ -533,6 +579,7 @@ export interface SettingsData {
     'openai-compatible'?: OpenAiCompatibleProvider;
     openrouter?: OpenRouterProvider;
     requesty?: RequestyProvider;
+    synthetic?: SyntheticProvider;
     'vertex-ai'?: VertexAiProvider;
   };
   telemetryEnabled: boolean;
@@ -547,6 +594,8 @@ export interface SettingsData {
     };
   };
   memory: MemoryConfig;
+  taskSettings: TaskSettings;
+  hotkeyConfig?: HotkeyConfig;
 }
 
 export interface ProviderProfile {
@@ -554,6 +603,7 @@ export interface ProviderProfile {
   name?: string;
   provider: LlmProvider;
   headers?: Record<string, string>;
+  disabled?: boolean;
 }
 
 export interface ProvidersUpdatedData {
@@ -716,10 +766,13 @@ export const TaskDataSchema = z.object({
   id: z.string(),
   baseDir: z.string(),
   name: z.string(),
+  state: z.string().optional(),
   archived: z.boolean().optional(),
+  pinned: z.boolean().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
   startedAt: z.string().optional(),
+  interruptedAt: z.string().optional(),
   completedAt: z.string().optional(),
   worktree: WorktreeSchema.optional(),
   workingMode: WorkingModeSchema.optional(),
@@ -741,6 +794,16 @@ export const TaskDataSchema = z.object({
 });
 
 export type TaskData = z.infer<typeof TaskDataSchema>;
+
+export enum DefaultTaskState {
+  Todo = 'TODO',
+  InProgress = 'IN_PROGRESS',
+  Interrupted = 'INTERRUPTED',
+  MoreInfoNeeded = 'MORE_INFO_NEEDED',
+  ReadyForReview = 'READY_FOR_REVIEW',
+  ReadyForImplementation = 'READY_FOR_IMPLEMENTATION',
+  Done = 'DONE',
+}
 
 export interface TodoItem {
   name: string;
@@ -834,11 +897,4 @@ export interface BranchInfo {
   name: string;
   isCurrent: boolean;
   hasWorktree: boolean;
-}
-
-export interface Test {
-  name: string;
-  description: string;
-  status: 'todo' | 'in_progress' | 'done';
-  message: string;
 }

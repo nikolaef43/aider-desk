@@ -2,8 +2,9 @@ import { Font, ProjectData, SettingsData, Theme, AgentProfile, ProviderProfile }
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
-import { FaChevronDown, FaChevronRight, FaCog, FaInfoCircle, FaRobot, FaServer, FaBrain, FaMicrophone } from 'react-icons/fa';
+import { FaChevronDown, FaChevronRight, FaCog, FaInfoCircle, FaRobot, FaServer, FaBrain, FaMicrophone, FaKeyboard } from 'react-icons/fa';
 import { MdTerminal } from 'react-icons/md';
+import { LuClipboardList } from 'react-icons/lu';
 
 import { getPathBasename } from '@/utils/path-utils';
 import { useApi } from '@/contexts/ApiContext';
@@ -14,6 +15,8 @@ import { AboutSettings } from '@/components/settings/AboutSettings';
 import { ServerSettings } from '@/components/settings/ServerSettings';
 import { MemorySettings } from '@/components/settings/MemorySettings';
 import { VoiceSettings } from '@/components/settings/VoiceSettings';
+import { HotkeysSettings } from '@/components/settings/HotkeysSettings';
+import { TaskSettings } from '@/components/settings/TaskSettings';
 
 type Props = {
   settings: SettingsData;
@@ -32,7 +35,7 @@ type Props = {
   setProviders?: (providers: ProviderProfile[]) => void;
 };
 
-type PageId = 'general' | 'aider' | 'agents' | 'memory' | 'voice' | 'server' | 'about';
+type PageId = 'general' | 'aider' | 'agents' | 'tasks' | 'memory' | 'voice' | 'hotkeys' | 'server' | 'about';
 
 interface SidebarItem {
   id: string;
@@ -121,6 +124,12 @@ export const Settings = ({
       ],
     },
     {
+      id: 'tasks',
+      pageId: 'tasks',
+      label: t('settings.tabs.tasks'),
+      icon: <LuClipboardList className="w-4 h-4" />,
+    },
+    {
       id: 'memory',
       pageId: 'memory',
       label: t('settings.tabs.memory'),
@@ -131,6 +140,12 @@ export const Settings = ({
       pageId: 'voice',
       label: t('settings.tabs.voice'),
       icon: <FaMicrophone className="w-4 h-4" />,
+    },
+    {
+      id: 'hotkeys',
+      pageId: 'hotkeys',
+      label: t('settings.tabs.hotkeys'),
+      icon: <FaKeyboard className="w-4 h-4" />,
     },
     ...(isServerManagementSupported
       ? [
@@ -231,8 +246,12 @@ export const Settings = ({
         );
       case 'memory':
         return <MemorySettings settings={settings} setSettings={updateSettings} />;
+      case 'tasks':
+        return <TaskSettings settings={settings} setSettings={updateSettings} />;
       case 'voice':
         return <VoiceSettings providers={providers} setProviders={setProviders} initialProviderId={initialOptions?.providerId as string | undefined} />;
+      case 'hotkeys':
+        return <HotkeysSettings settings={settings} setSettings={updateSettings} />;
       case 'server':
         return <ServerSettings settings={settings} setSettings={updateSettings} />;
       case 'about':

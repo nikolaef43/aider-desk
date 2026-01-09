@@ -55,6 +55,7 @@ export const createMockApi = (overrides: Partial<ApplicationAPI> = {}): MockedOb
     runPrompt: vi.fn((): void => undefined),
     savePrompt: vi.fn((): Promise<void> => Promise.resolve()),
     redoLastUserPrompt: vi.fn((): void => undefined),
+    resumeTask: vi.fn((): void => undefined),
     answerQuestion: vi.fn((): void => undefined),
     loadInputHistory: vi.fn((): Promise<string[]> => Promise.resolve([])),
 
@@ -223,6 +224,8 @@ export const createMockApi = (overrides: Partial<ApplicationAPI> = {}): MockedOb
     listAllMemories: vi.fn((): Promise<MemoryEntry[]> => Promise.resolve([])),
     deleteMemory: vi.fn((): Promise<boolean> => Promise.resolve(true)),
     deleteProjectMemories: vi.fn((): Promise<number> => Promise.resolve(0)),
+    writeToClipboard: vi.fn((): Promise<void> => Promise.resolve()),
+    openPath: vi.fn((): Promise<boolean> => Promise.resolve(true)),
   };
 
   return vi.mocked<ApplicationAPI>({ ...defaultMock, ...overrides });

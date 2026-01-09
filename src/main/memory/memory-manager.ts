@@ -441,6 +441,7 @@ export class MemoryManager {
       limit,
       maxDistance,
       count: results.length,
+      distances: results.map((result) => result._distance),
     });
 
     const filteredResults = results.filter((result) => (result._distance as number) <= maxDistance);
@@ -497,6 +498,43 @@ export class MemoryManager {
       return true;
     } catch (error) {
       logger.error('Failed to delete memory:', error);
+      return false;
+    }
+  }
+
+  async updateMemory(id: string, content: string): Promise<boolean> {
+    if (!(await this.waitForInit()) || !this.isMemoryEnabled() || !this.db || !this.table) {
+      return false;
+    }
+
+    try {
+      // Check if memory exists
+      const results = await this.table.query().where(`id = '${id}'`).select(['id']).limit(1).toArray();
+
+      if (results.length === 0) {
+        logger.warn(`Memory not found for update: ${id}`);
+        return false;
+      }
+
+      const vector = await this.getEmbedding(content);
+
+      if (!vector) {
+        logger.error('Failed to generate embedding for memory update');
+        return false;
+      }
+
+      await this.table.update({
+        where: `id = '${id}'`,
+        values: {
+          content,
+          vector,
+        },
+      });
+
+      logger.debug(`Updated memory entry: ${id}`);
+      return true;
+    } catch (error) {
+      logger.error('Failed to update memory:', error);
       return false;
     }
   }

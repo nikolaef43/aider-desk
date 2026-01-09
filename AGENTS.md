@@ -26,7 +26,7 @@ This file provides guidance to AiderDesk when working with code in this reposito
 - `npm run test:coverage` - Generate coverage reports
 - `npm run test:ui` - Open interactive test UI
 
-**Note for Agents**: When running tests via `power---bash`, always append `-- --no-color` to the command (e.g., `npm run test:node -- --no-color`) to ensure clean, parseable output without ANSI escape codes.
+**Note for Agents**: When running 'npm run test...' scripts via `power---bash`, always append `-- --no-color` to the command (e.g., `npm run test:node -- --no-color`) to ensure clean, parseable output without ANSI escape codes.
 
 ### Building
 - `npm run build` - Full build (includes type checking and MCP server build)
@@ -93,7 +93,7 @@ AiderDesk is an Electron-based desktop application that provides a GUI wrapper f
 **Build System**: Powered by electron-vite for development and building, with esbuild for the MCP server component.
 
 ### Technology Stack
-- **Frontend**: React 18 with TypeScript, Tailwind CSS, Framer Motion
+- **Frontend**: React 19 with TypeScript, Tailwind CSS, Framer Motion
 - **Backend**: Electron, Node.js, Python (Aider integration)
 - **AI Integration**: Vercel AI SDK, multiple LLM providers (OpenAI, Anthropic, Gemini, etc.)
 - **Build Tools**: electron-vite, esbuild, TypeScript project references

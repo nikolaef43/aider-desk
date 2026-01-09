@@ -222,6 +222,10 @@ export class EventsHandler {
     void this.projectManager.getProject(baseDir).getTask(taskId)?.redoLastUserPrompt(mode, updatedPrompt);
   }
 
+  async resumeTask(baseDir: string, taskId: string): Promise<void> {
+    void this.projectManager.getProject(baseDir).getTask(taskId)?.resumeTask();
+  }
+
   async compactConversation(baseDir: string, taskId: string, mode: Mode, customInstructions?: string): Promise<void> {
     const task = this.projectManager.getProject(baseDir).getTask(taskId);
     if (task) {
@@ -613,8 +617,12 @@ export class EventsHandler {
     );
   }
 
+  async generateTaskMarkdown(baseDir: string, taskId: string): Promise<string | null> {
+    return (await this.projectManager.getProject(baseDir).getTask(taskId)?.generateContextMarkdown()) || null;
+  }
+
   async exportTaskToMarkdown(baseDir: string, taskId: string): Promise<void> {
-    const markdownContent = await this.projectManager.getProject(baseDir).getTask(taskId)?.generateContextMarkdown();
+    const markdownContent = await this.generateTaskMarkdown(baseDir, taskId);
 
     if (markdownContent) {
       try {
@@ -751,6 +759,20 @@ export class EventsHandler {
       return true;
     } catch (error) {
       logger.error('Failed to open logs directory:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  async openPath(path: string): Promise<boolean> {
+    try {
+      const { shell } = await import('electron');
+      await shell.openPath(path);
+      return true;
+    } catch (error) {
+      logger.error('Failed to open path:', {
+        path,
         error: error instanceof Error ? error.message : String(error),
       });
       return false;

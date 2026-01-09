@@ -168,7 +168,9 @@
     "placeholder": "输入模型名称",
     "chooseModelsToAdd": "选择要添加的模型...",
     "library": {
-      "all": "全部"
+      "all": "全部",
+      "deleteMemoryTitle": "删除记忆",
+      "deleteMemoryDialogText": "您确定要删除此记忆吗？"
     }
   },
   "modelLibrary": {
@@ -189,6 +191,7 @@
     "all": "全部",
     "refresh": "刷新",
     "selectProvider": "选择要配置的提供商",
+    "editProvider": "编辑提供商",
     "profileForm": {
       "title": "配置 {{provider}} 提供商的配置文件",
       "name": "配置文件名称",
@@ -247,7 +250,10 @@
       "overridesProviderParameters": "覆盖一些提供商参数"
     },
     "disableStreaming": "禁用流式传输",
-    "disableStreamingInfo": "禁用响应流式传输。当提供商或模型不支持流式传输时使用此选项。"
+    "disableStreamingInfo": "禁用响应流式传输。当提供商或模型不支持流式传输时使用此选项。",
+    "disable": "禁用",
+    "enable": "启用",
+    "providerDisabled": "此提供商已被禁用。其模型将不可用。"
   },
   "openai": {
     "apiKey": "API 密钥",
@@ -278,6 +284,9 @@
     "apiKey": "API 密钥"
   },
   "minimax": {
+    "apiKey": "API 密钥"
+  },
+  "synthetic": {
     "apiKey": "API 密钥"
   },
   "gemini": {
@@ -339,6 +348,7 @@
     "openai-compatible": "OpenAI Compatible",
     "openrouter": "OpenRouter",
     "requesty": "Requesty",
+    "synthetic": "Synthetic",
     "vertex-ai": "Vertex AI",
     "zai-plan": "Z.AI Coding Plan",
     "azure": "Azure"
@@ -354,10 +364,46 @@
       "providers": "模型提供者",
       "aider": "Aider",
       "agents": "代理",
+      "hotkeys": "快捷键",
       "server": "服务器",
       "memory": "记忆",
+      "tasks": "任务",
       "voice": "语音",
       "about": "关于"
+    },
+    "hotkeys": {
+      "projectHotkeys": "项目快捷键",
+      "taskHotkeys": "任务快捷键",
+      "dialogHotkeys": "对话框快捷键",
+      "closeProject": "关闭项目",
+      "newProject": "新建项目",
+      "usageDashboard": "使用情况面板",
+      "modelLibrary": "模型库",
+      "settings": "设置",
+      "cycleNextProject": "切换到下一个项目",
+      "cyclePrevProject": "切换到上一个项目",
+      "switchProject": "切换到项目 {{number}}",
+      "switchTask": "切换到任务 {{number}}",
+      "focusPrompt": "聚焦提示框",
+      "newTask": "新建任务",
+      "closeTask": "关闭任务",
+      "browseFolder": "浏览文件夹",
+      "enterHotkey": "输入快捷键...",
+      "resetToDefaults": "重置为默认值",
+      "hotkeyFormat": "快捷键格式：",
+      "modKey": "使用 'mod' 表示 Cmd (Mac) 或 Ctrl (Windows/Linux)",
+      "multipleKeys": "用逗号分隔多个按键组合",
+      "examples": "示例：'mod+w'、'ctrl+shift+t'、'alt+1,meta+1'",
+      "clickToRecord": "点击录制",
+      "recording": "按下按键...",
+      "addShortcut": "添加快捷键",
+      "editShortcut": "编辑快捷键",
+      "clearShortcut": "清除快捷键",
+      "noShortcut": "未配置快捷键",
+      "recordShortcutDescription": "点击下方的录制按钮，然后按下您想要用作快捷键的组合键。",
+      "pressKeysToRecord": "按键录制中...",
+      "startRecording": "开始录制",
+      "stopRecording": "停止录制"
     },
     "gui": "GUI",
     "voice": {
@@ -386,6 +432,15 @@
       "title": "启动",
       "emptyTask": "启动时创建新任务",
       "lastTask": "加载上次任务"
+    },
+    "tasks": {
+      "title": "任务",
+      "smartTaskState": "智能任务状态",
+      "smartTaskStateTooltip": "启用后，模型会智能分析代理的响应，将任务分类为'需要更多信息'、'准备实施'或'准备审查'。禁用时，任务状态将始终设置为'准备审查'。",
+      "autoGenerateTaskName": "自动生成任务名称",
+      "autoGenerateTaskNameTooltip": "启用后，模型会根据您的提示生成简洁的任务名称。禁用时，将使用提示的前5个词作为任务名称。",
+      "showTaskStateActions": "显示任务状态操作",
+      "showTaskStateActionsTooltip": "启用后，任务状态操作将显示在消息底部。禁用以隐藏这些操作。"
     },
     "language": "语言",
     "notifications": {
@@ -629,6 +684,8 @@
     "copy": "复制",
     "copied": "已复制!",
     "interrupted": "被用户中断。",
+    "taskInterrupted": "任务中断",
+    "taskInterruptedDescription": "任务在进行过程中被用户中断。",
     "delete": "删除",
     "redo": "重做",
     "edit": "编辑",
@@ -636,9 +693,23 @@
     "cancelEdit": "取消编辑",
     "group": "分组",
     "scrollToBottom": "滚动到底部",
+    "previousUserMessage": "上一条用户消息",
+    "nextUserMessage": "下一条用户消息",
     "messageBar": "消息栏",
     "exportNotAvailableWithVirtualized": "使用虚拟化消息渲染时无法导出为图片。请在 设置 -> 常规 -> 消息显示 中更改为标准渲染。",
-    "execute": "执行"
+    "execute": "执行",
+    "resume": "继续",
+    "taskReadyForReview": "任务准备就绪，待审查",
+    "taskTodo": "任务未开始",
+    "taskTodoDescription": "任务尚未开始。点击执行开始。",
+    "markAsDone": "标记为完成",
+    "taskReadyForImplementation": "任务准备就绪，待实施",
+    "taskDone": "任务已完成",
+    "taskDoneArchived": "任务已完成并已归档",
+    "proceed": "继续",
+    "archive": "归档",
+    "unarchive": "取消归档",
+    "confirmDelete": "确认删除"
   },
   "errors": {
     "frozenTitle": "AIDER冻结了?",
@@ -838,10 +909,14 @@
     "deniedByReason": "用户拒绝: {{reason}}",
     "tasks": {
       "listTasks": "列出任务",
+      "listTasksWithState": "列出状态为 {{state}} 的任务",
       "getTask": "获取任务",
       "getTaskMessage": "获取任务消息",
       "createTask": "创建任务",
       "deleteTask": "删除任务",
+      "execute": "执行",
+      "yes": "是",
+      "no": "否",
       "taskId": "任务ID",
       "messageIndex": "消息索引",
       "prompt": "提示",
@@ -927,8 +1002,7 @@
         "resultLabel": "结果 {{index}}"
       },
       "fetch": {
-        "title": "抓取网页内容",
-        "contentTruncated": "内容已截断。完整内容可在复制中查看。"
+        "title": "抓取网页内容"
       }
     },
     "memory": {
@@ -936,25 +1010,33 @@
       "storingMemory": "正在存储记忆...",
       "retrievingMemories": "正在检索记忆...",
       "deletingMemory": "正在删除记忆...",
+      "updatingMemory": "正在更新记忆...",
       "listingMemories": "正在列出记忆...",
       "memoryStored": "记忆已存储。",
+      "memoryUpdated": "记忆已更新。",
       "memoryDeleted": "记忆已删除。",
       "memoryId": "记忆ID",
       "type": "类型",
       "content": "内容",
+      "newContent": "新内容",
       "query": "查询",
       "limit": "限制",
       "foundMemories": "找到 {{count}} 条记忆。",
       "noMemoriesFound": "未找到相关记忆。",
       "noRelevantMemories": "未找到相关记忆",
       "storedMemoryDetails": "存储的记忆详情",
+      "updatedMemoryDetails": "更新的记忆详情",
       "deletedMemoryDetails": "删除的记忆详情",
       "retrievedMemories": "检索到的记忆",
       "memoryList": "记忆列表",
       "listedMemories": "正在列出记忆。",
       "ofType": "类型为 {{type}}",
       "noMemoriesOfType": "未找到类型为 {{type}} 的记忆",
-      "all": "全部"
+      "all": "全部",
+      "delete": "删除",
+      "memoryNotFound": "未找到",
+      "deleteDialogTitle": "删除记忆",
+      "deleteDialogText": "确定要删除这条记忆吗？"
     },
     "subagents": {
       "groupRunning": "{{name}}: 子代理正在工作...",
@@ -1091,6 +1173,7 @@
     "think-tokens": "设置思考令牌预算（支持 8096、8k、10.5k、0.5M 等格式）",
     "tokens": "报告当前聊天上下文使用的令牌数量",
     "undo": "撤消 Aider 完成的最后一次 git 提交",
+    "task-info": "显示任务信息",
     "web": "抓取网页内容并保存到文件。使用 /web url [文件] 格式，其中 [文件] 为可选参数"
   },
   "telemetry": {
@@ -1210,11 +1293,12 @@
     "deleteConfirm": "您确定要删除这个任务吗？",
     "createTask": "创建新任务",
     "rename": "重命名",
+    "pinTask": "固定任务",
+    "unpinTask": "取消固定任务",
     "taskNamePlaceholder": "输入任务名称...",
     "untitled": "[未命名]",
     "exportAsMarkdown": "导出为 Markdown",
     "exportAsImage": "导出为图片",
-    "copyTaskId": "复制任务 ID",
     "taskIdCopied": "任务 ID {{taskId}} 已复制到剪贴板",
     "duplicateTask": "复制任务",
     "search": "搜索任务",
@@ -1232,7 +1316,32 @@
     "unarchiveSelected": "取消归档选中项",
     "deleteSelectedConfirm": "您确定要删除 {{count}} 个选中的任务吗？",
     "archiveSelectedConfirm": "您确定要归档 {{count}} 个选中的任务吗？",
-    "unarchiveSelectedConfirm": "您确定要取消归档 {{count}} 个选中的任务吗？"
+    "unarchiveSelectedConfirm": "您确定要取消归档 {{count}} 个选中的任务吗？",
+    "generatingName": "正在生成名称..."
+  },
+  "taskInfo": {
+    "createdAt": "创建于",
+    "updatedAt": "更新于",
+    "worktreeDirectory": "工作树目录",
+    "baseBranch": "基础分支",
+    "baseCommit": "基础提交",
+    "targetBranch": "目标分支",
+    "lastMergeState": "最后合并状态",
+    "beforeMergeCommit": "合并前提交",
+    "mergeTimestamp": "合并时间戳",
+    "openFolder": "在文件夹中打开",
+    "taskId": "任务 ID",
+    "state": "状态",
+    "messageCount": "消息数量"
+  },
+  "taskState": {
+    "TODO": "待办",
+    "IN_PROGRESS": "进行中",
+    "INTERRUPTED": "已中断",
+    "MORE_INFO_NEEDED": "需要更多信息",
+    "READY_FOR_REVIEW": "待审核",
+    "READY_FOR_IMPLEMENTATION": "待实现",
+    "DONE": "已完成"
   },
   "worktree": {
     "aheadCommits": "↑ {{count}} 次提交",

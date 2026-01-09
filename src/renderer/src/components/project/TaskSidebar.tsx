@@ -1,25 +1,28 @@
-import { TaskData } from '@common/types';
+import { DefaultTaskState, TaskData } from '@common/types';
 import { useTranslation } from 'react-i18next';
-import { KeyboardEvent, MouseEvent, useState, memo, useRef, useEffect } from 'react';
-import { HiOutlinePencil, HiOutlineTrash, HiPlus, HiCheck } from 'react-icons/hi';
+import { KeyboardEvent, MouseEvent, useState, memo, useRef, useEffect, useOptimistic, startTransition } from 'react';
+import { HiOutlinePencil, HiOutlineTrash, HiPlus, HiCheck, HiSparkles } from 'react-icons/hi';
 import { RiMenuUnfold4Line } from 'react-icons/ri';
 import { FaEllipsisVertical } from 'react-icons/fa6';
 import { IoLogoMarkdown } from 'react-icons/io';
 import { CgSpinner } from 'react-icons/cg';
-import { MdImage, MdOutlineSearch } from 'react-icons/md';
+import { MdImage, MdOutlineSearch, MdPushPin } from 'react-icons/md';
 import { clsx } from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
-import { BiCopy, BiDuplicate, BiArchive, BiArchiveIn } from 'react-icons/bi';
+import { BiDuplicate, BiArchive, BiArchiveIn } from 'react-icons/bi';
 import { HiXMark } from 'react-icons/hi2';
 import { useDebounce, useLongPress } from '@reactuses/core';
 
 import { useTask } from '@/contexts/TaskContext';
+import { getSortedVisibleTasks } from '@/utils/task-utils';
 import { Input } from '@/components/common/Input';
 import { StyledTooltip } from '@/components/common/StyledTooltip';
 import { Button } from '@/components/common/Button';
 import { IconButton } from '@/components/common/IconButton';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { LoadingText } from '@/components/common/LoadingText';
+import { TaskStateChip } from '@/components/common/TaskStateChip';
 
 export const COLLAPSED_WIDTH = 44;
 export const EXPANDED_WIDTH = 256;
@@ -29,10 +32,11 @@ type TaskMenuButtonProps = {
   onDelete?: () => void;
   onExportToMarkdown?: () => void;
   onExportToImage?: () => void;
-  onCopyTaskId?: () => void;
   onDuplicateTask?: () => void;
   onArchiveTask?: () => void;
   onUnarchiveTask?: () => void;
+  onTogglePin?: () => void;
+  isPinned?: boolean;
 };
 
 const TaskMenuButton = ({
@@ -40,10 +44,11 @@ const TaskMenuButton = ({
   onDelete,
   onExportToMarkdown,
   onExportToImage,
-  onCopyTaskId,
   onDuplicateTask,
   onArchiveTask,
   onUnarchiveTask,
+  onTogglePin,
+  isPinned,
 }: TaskMenuButtonProps) => {
   const { t } = useTranslation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -82,12 +87,6 @@ const TaskMenuButton = ({
     setIsMenuOpen(false);
   };
 
-  const handleCopyTaskIdClick = (e: MouseEvent) => {
-    e.stopPropagation();
-    onCopyTaskId?.();
-    setIsMenuOpen(false);
-  };
-
   const handleDuplicateTaskClick = (e: MouseEvent) => {
     e.stopPropagation();
     onDuplicateTask?.();
@@ -106,8 +105,27 @@ const TaskMenuButton = ({
     setIsMenuOpen(false);
   };
 
+  const handlePinClick = (e: MouseEvent) => {
+    e.stopPropagation();
+    onTogglePin?.();
+  };
+
   return (
-    <div className={clsx('relative flex items-center pl-2', isMenuOpen ? 'flex' : 'display-none w-0 group-hover:w-auto group-hover:display-flex')}>
+    <div className={clsx('relative flex items-center pl-2', isMenuOpen ? 'flex' : 'w-0 group-hover:w-auto')}>
+      {onTogglePin && (
+        <button
+          data-tooltip-id="task-sidebar-tooltip"
+          data-tooltip-content={isPinned ? t('taskSidebar.unpinTask') : t('taskSidebar.pinTask')}
+          className={clsx(
+            'transition-opacity p-1.5 rounded-md hover:bg-bg-tertiary mr-1',
+            isPinned ? 'text-text-primary' : 'text-text-muted hover:text-text-primary',
+            !isMenuOpen && 'opacity-0 group-hover:opacity-100',
+          )}
+          onClick={handlePinClick}
+        >
+          <MdPushPin className={clsx('w-4 h-4', isPinned && 'rotate-45')} />
+        </button>
+      )}
       <div ref={buttonRef}>
         <button
           className={clsx(
@@ -148,15 +166,6 @@ const TaskMenuButton = ({
               >
                 <MdImage className="w-4 h-4" />
                 <span className="whitespace-nowrap">{t('taskSidebar.exportAsImage')}</span>
-              </li>
-            )}
-            {onCopyTaskId && (
-              <li
-                className="flex items-center gap-2 px-2 py-1 text-2xs text-text-primary hover:bg-bg-tertiary cursor-pointer transition-colors"
-                onClick={handleCopyTaskIdClick}
-              >
-                <BiCopy className="w-4 h-4" />
-                <span className="whitespace-nowrap">{t('taskSidebar.copyTaskId')}</span>
               </li>
             )}
             {onDuplicateTask && (
@@ -202,26 +211,8 @@ const TaskMenuButton = ({
   );
 };
 
-type Props = {
-  loading: boolean;
-  tasks: TaskData[];
-  activeTaskId: string | null;
-  onTaskSelect: (taskId: string) => void;
-  createNewTask?: () => void;
-  className?: string;
-  isCollapsed: boolean;
-  onToggleCollapse: () => void;
-  updateTask?: (taskId: string, updates: Partial<TaskData>) => Promise<void>;
-  deleteTask?: (taskId: string) => Promise<void>;
-  onExportToMarkdown?: (taskId: string) => void;
-  onExportToImage?: (taskId: string) => void;
-  onCopyTaskId?: (taskId: string) => void;
-  onDuplicateTask?: (taskId: string) => void;
-};
-
 // Multiselect Menu Component
 const MultiselectMenu = ({
-  selectedCount: _selectedCount,
   hasArchived,
   onDelete,
   onArchive,
@@ -231,7 +222,6 @@ const MultiselectMenu = ({
   menuRef,
   buttonRef,
 }: {
-  selectedCount: number;
   hasArchived: boolean;
   onDelete: () => void;
   onArchive: () => void;
@@ -299,6 +289,22 @@ const MultiselectMenu = ({
   );
 };
 
+type Props = {
+  loading: boolean;
+  tasks: TaskData[];
+  activeTaskId: string | null;
+  onTaskSelect: (taskId: string) => void;
+  createNewTask?: () => void;
+  className?: string;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+  updateTask?: (taskId: string, updates: Partial<TaskData>) => Promise<void>;
+  deleteTask?: (taskId: string) => Promise<void>;
+  onExportToMarkdown?: (taskId: string) => void;
+  onExportToImage?: (taskId: string) => void;
+  onDuplicateTask?: (taskId: string) => void;
+};
+
 const TaskSidebarComponent = ({
   loading,
   tasks,
@@ -312,7 +318,6 @@ const TaskSidebarComponent = ({
   deleteTask,
   onExportToMarkdown,
   onExportToImage,
-  onCopyTaskId,
   onDuplicateTask,
 }: Props) => {
   const { t } = useTranslation();
@@ -325,6 +330,7 @@ const TaskSidebarComponent = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const debouncedSearchQuery = useDebounce(searchQuery, 50);
+  const [optimisticActiveTaskId, setOptimisticActiveTaskId] = useOptimistic(activeTaskId);
 
   // Multiselect state
   const [isMultiselectMode, setIsMultiselectMode] = useState<boolean>(false);
@@ -334,6 +340,7 @@ const TaskSidebarComponent = ({
   const [bulkArchiveConfirm, setBulkArchiveConfirm] = useState<boolean>(false);
   const multiselectMenuRef = useRef<HTMLDivElement>(null);
   const multiselectButtonRef = useRef<HTMLDivElement>(null);
+  const lastClickedTaskIdRef = useRef<string | null>(null);
   const selectedArchived = Array.from(selectedTasks).filter((taskId) => tasks.find((task) => task.id === taskId)?.archived);
 
   const handleMultiselectClose = () => {
@@ -342,6 +349,7 @@ const TaskSidebarComponent = ({
     setIsMultiselectMenuOpen(false);
     setBulkDeleteConfirm(false);
     setBulkArchiveConfirm(false);
+    lastClickedTaskIdRef.current = null;
   };
 
   // Handle ESC key to exit multiselect mode
@@ -361,34 +369,20 @@ const TaskSidebarComponent = ({
     setIsMultiselectMenuOpen(false);
   });
 
-  const sortedTasks = tasks
-    .filter((task) => showArchived || !task.archived)
-    .filter((task) => {
-      if (!debouncedSearchQuery.trim()) {
-        return true;
-      }
-      const searchText = debouncedSearchQuery.toLowerCase();
-      return task.name.toLowerCase().includes(searchText);
-    })
-    .sort((a, b) => {
-      if (a.updatedAt && !b.updatedAt) {
-        return 1;
-      } else if (!a.updatedAt && b.updatedAt) {
-        return -1;
-      } else if (!a.updatedAt && !b.updatedAt) {
-        return 0;
-      } else {
-        return b.updatedAt!.localeCompare(a.updatedAt!);
-      }
-    });
+  const sortedTasks = getSortedVisibleTasks(tasks, showArchived, debouncedSearchQuery);
 
   const handleTaskClick = (e: MouseEvent, taskId: string) => {
     if (e.ctrlKey || e.metaKey) {
       handleTaskCtrlClick(e, taskId);
+    } else if (e.shiftKey && isMultiselectMode) {
+      handleTaskShiftClick(taskId);
     } else if (isMultiselectMode) {
       handleTaskClickInMultiselect(e, taskId);
     } else {
-      onTaskSelect(taskId);
+      startTransition(() => {
+        setOptimisticActiveTaskId(taskId);
+        onTaskSelect(taskId);
+      });
     }
   };
 
@@ -398,6 +392,7 @@ const TaskSidebarComponent = ({
     },
     {
       delay: 500,
+      isPreventDefault: false,
     },
   );
 
@@ -497,6 +492,20 @@ const TaskSidebarComponent = ({
     }
   };
 
+  const handleTogglePin = async (taskId: string) => {
+    try {
+      if (updateTask) {
+        const task = tasks.find((t) => t.id === taskId);
+        if (task) {
+          await updateTask(taskId, { pinned: !task.pinned });
+        }
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to toggle pin:', error);
+    }
+  };
+
   // Multiselect handlers
   const handleTaskCtrlClick = (e: MouseEvent, taskId: string) => {
     e.preventDefault();
@@ -505,6 +514,7 @@ const TaskSidebarComponent = ({
     if (!isMultiselectMode) {
       setIsMultiselectMode(true);
       setSelectedTasks(new Set([taskId]));
+      lastClickedTaskIdRef.current = taskId;
     } else {
       setSelectedTasks((prev) => {
         const newSet = new Set(prev);
@@ -515,6 +525,7 @@ const TaskSidebarComponent = ({
         }
         return newSet;
       });
+      lastClickedTaskIdRef.current = taskId;
     }
   };
 
@@ -531,6 +542,45 @@ const TaskSidebarComponent = ({
       }
       return newSet;
     });
+    lastClickedTaskIdRef.current = taskId;
+  };
+
+  const handleTaskShiftClick = (taskId: string) => {
+    const lastClickedTaskId = lastClickedTaskIdRef.current;
+
+    if (!lastClickedTaskId) {
+      setSelectedTasks((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(taskId)) {
+          newSet.delete(taskId);
+        } else {
+          newSet.add(taskId);
+        }
+        return newSet;
+      });
+      lastClickedTaskIdRef.current = taskId;
+      return;
+    }
+
+    const taskIds = sortedTasks.map((task) => task.id);
+    const lastIndex = taskIds.indexOf(lastClickedTaskId);
+    const currentIndex = taskIds.indexOf(taskId);
+
+    if (lastIndex === -1 || currentIndex === -1) {
+      return;
+    }
+
+    const start = Math.min(lastIndex, currentIndex);
+    const end = Math.max(lastIndex, currentIndex);
+    const rangeIds = taskIds.slice(start, end + 1);
+
+    setSelectedTasks((prev) => {
+      const newSet = new Set(prev);
+      rangeIds.forEach((id) => newSet.add(id));
+      return newSet;
+    });
+
+    lastClickedTaskIdRef.current = taskId;
   };
 
   const handleBulkDelete = async () => {
@@ -561,24 +611,26 @@ const TaskSidebarComponent = ({
     }
   };
 
-  const renderTaskStateIcon = (taskId: string, isCollapsed: boolean = false) => {
-    const taskState = getTaskState(taskId, false);
+  const renderTaskStateIcon = (task: TaskData, isCollapsed: boolean = false) => {
+    const taskState = getTaskState(task.id, false);
     const iconSize = isCollapsed ? 'w-3.5 h-3.5' : 'w-4 h-4';
 
     if (taskState?.question) {
       return <span className={clsx('text-text-primary', isCollapsed ? 'text-xs' : 'text-sm')}>?</span>;
     }
-    return taskState?.processing ? <CgSpinner className={clsx('animate-spin', iconSize, 'text-text-primary')} /> : null;
+    return task?.state === DefaultTaskState.InProgress ? <CgSpinner className={clsx('animate-spin', iconSize, 'text-text-primary')} /> : null;
   };
 
   const renderExpandedTaskItem = (task: TaskData) => {
+    const isGeneratingName = task.name === '<<generating>>';
+
     return (
       <div>
         <div
           {...longPressProps}
           className={clsx(
-            'group relative flex items-center justify-between py-1 pl-2.5 cursor-pointer transition-colors border',
-            activeTaskId === task.id && !isMultiselectMode
+            'group relative flex items-center justify-between py-1 pl-2.5 cursor-pointer transition-colors border select-none',
+            optimisticActiveTaskId === task.id && !isMultiselectMode
               ? 'bg-bg-secondary border-border-dark-light'
               : selectedTasks.has(task.id) && isMultiselectMode
                 ? 'bg-bg-secondary border-border-dark-light'
@@ -599,22 +651,33 @@ const TaskSidebarComponent = ({
               </div>
             </div>
           )}
-          <div className="flex-1 min-w-0">
-            <div
-              className={clsx(
-                'text-xs font-medium truncate transition-colors',
-                task.archived && activeTaskId !== task.id ? 'text-text-muted group-hover:text-text-primary' : 'text-text-primary',
-              )}
-            >
-              {task.name || t('taskSidebar.untitled')}
-            </div>
-            <div className="text-3xs text-text-muted truncate">
-              {formatDate(task.updatedAt || new Date().toISOString())}
-              {task.archived && ` • ${t('taskSidebar.archived')}`}
+          <div className="flex-1 min-w-0 flex flex-col gap-1">
+            {isGeneratingName ? (
+              <LoadingText
+                label={t('taskSidebar.generatingName')}
+                className="text-xs font-medium truncate"
+                icon={<HiSparkles className="w-3 h-3 text-accent-primary flex-shrink-0" />}
+              />
+            ) : (
+              <div className="flex items-center justify-between">
+                <div
+                  className={clsx(
+                    'text-xs font-medium truncate transition-colors',
+                    task.archived && optimisticActiveTaskId !== task.id ? 'text-text-muted group-hover:text-text-primary' : 'text-text-primary',
+                  )}
+                >
+                  {task.name || t('taskSidebar.untitled')}
+                </div>
+                {task.pinned && <MdPushPin className="w-3 h-3 text-text-muted shrink-0 ml-1 rotate-45 group-hover:hidden" />}
+              </div>
+            )}
+            <div className="flex items-center gap-1 text-3xs text-text-muted">
+              <TaskStateChip state={task.state || DefaultTaskState.Todo} className="-ml-0.5" />
+              {task.archived && <span>• {t('taskSidebar.archived')}</span>}
             </div>
           </div>
 
-          <div className="flex items-center pl-2">{renderTaskStateIcon(task.id, false)}</div>
+          <div className="flex items-center pl-2">{renderTaskStateIcon(task, false)}</div>
 
           {!isMultiselectMode && (
             <TaskMenuButton
@@ -622,10 +685,11 @@ const TaskSidebarComponent = ({
               onDelete={task.createdAt ? () => handleDeleteClick(task.id) : undefined}
               onExportToMarkdown={onExportToMarkdown && task.createdAt ? () => onExportToMarkdown(task.id) : undefined}
               onExportToImage={onExportToImage && task.createdAt ? () => onExportToImage(task.id) : undefined}
-              onCopyTaskId={onCopyTaskId && task.createdAt ? () => onCopyTaskId(task.id) : undefined}
               onDuplicateTask={onDuplicateTask && task.createdAt ? () => onDuplicateTask(task.id) : undefined}
               onArchiveTask={task.archived || !task.createdAt ? undefined : () => handleArchiveTask(task.id)}
               onUnarchiveTask={task.archived ? () => handleUnarchiveTask(task.id) : undefined}
+              onTogglePin={() => handleTogglePin(task.id)}
+              isPinned={task.pinned || false}
             />
           )}
         </div>
@@ -670,10 +734,6 @@ const TaskSidebarComponent = ({
     );
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
-
   return (
     <motion.div
       className={clsx('flex flex-col h-full border-r border-border-dark-light bg-bg-primary-light-strong', className)}
@@ -710,7 +770,6 @@ const TaskSidebarComponent = ({
                         <HiXMark className="w-5 h-5 text-text-primary" />
                       </button>
                       <MultiselectMenu
-                        selectedCount={selectedTasks.size}
                         hasArchived={Array.from(selectedTasks).some((taskId) => tasks.find((task) => task.id === taskId)?.archived)}
                         onDelete={() => setBulkDeleteConfirm(true)}
                         onArchive={() => setBulkArchiveConfirm(true)}
@@ -919,7 +978,12 @@ const arePropsEqual = (prevProps: Props, nextProps: Props): boolean => {
     }
 
     // Only check properties that affect rendering
-    if (prevTask.name !== nextTask.name || prevTask.updatedAt !== nextTask.updatedAt || prevTask.createdAt !== nextTask.createdAt) {
+    if (
+      prevTask.name !== nextTask.name ||
+      prevTask.updatedAt !== nextTask.updatedAt ||
+      prevTask.createdAt !== nextTask.createdAt ||
+      prevTask.pinned !== nextTask.pinned
+    ) {
       return false;
     }
   }

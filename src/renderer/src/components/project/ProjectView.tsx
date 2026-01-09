@@ -1,16 +1,18 @@
 import { InputHistoryData, ProjectData, ProjectStartMode, TaskData } from '@common/types';
 import { useTranslation } from 'react-i18next';
-import { startTransition, useCallback, useEffect, useOptimistic, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useOptimistic, useRef, useState, useTransition } from 'react';
 import { useLocalStorage } from '@reactuses/core';
-import { CgSpinner } from 'react-icons/cg';
+import { useHotkeys } from 'react-hotkeys-hook';
 
 import { useSettings } from '@/contexts/SettingsContext';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
+import { LoadingOverlay } from '@/components/common/LoadingOverlay';
 import { TaskView, TaskViewRef } from '@/components/project/TaskView';
 import { COLLAPSED_WIDTH, EXPANDED_WIDTH, TaskSidebar } from '@/components/project/TaskSidebar';
 import { useApi } from '@/contexts/ApiContext';
 import { TaskProvider } from '@/contexts/TaskContext';
-import { showInfoNotification } from '@/utils/notifications';
+import { useConfiguredHotkeys } from '@/hooks/useConfiguredHotkeys';
+import { getSortedVisibleTasks } from '@/utils/task-utils';
 
 type Props = {
   project: ProjectData;
@@ -23,6 +25,7 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
   const { settings } = useSettings();
   const { projectSettings } = useProjectSettings();
   const api = useApi();
+  const { TASK_HOTKEYS } = useConfiguredHotkeys();
 
   const [inputHistory, setInputHistory] = useState<string[]>([]);
   const [starting, setStarting] = useState(true);
@@ -30,52 +33,103 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
   const [tasksLoading, setTasksLoading] = useState(true);
   const [tasks, setTasks] = useState<TaskData[]>([]);
   const [optimisticTasks, setOptimisticTasks] = useOptimistic(tasks);
-  const [isCollapsed, setIsCollapsed] = useLocalStorage(`task-sidebar-collapsed-${project.baseDir}`, false);
+  const [isTaskBarCollapsed, setIsTaskBarCollapsed] = useLocalStorage(`task-sidebar-collapsed-${project.baseDir}`, false);
+  const [shouldFocusNewTask, setShouldFocusNewTask] = useState(false);
   const taskViewRef = useRef<TaskViewRef>(null);
+  const creatingTaskRef = useRef(false);
   const activeTask = activeTaskId ? optimisticTasks.find((task) => task.id === activeTaskId) : null;
+  const [isActiveTaskSwitching, startActiveTaskTransition] = useTransition();
+
+  const focusActiveTaskPrompt = useCallback(() => {
+    taskViewRef.current?.focusPromptField();
+  }, []);
 
   const createNewTask = useCallback(async () => {
-    const existingNewTask = tasks.find((task) => !task.createdAt);
-    if (existingNewTask) {
-      // when there is active task and is new we don't need to create new one
-      setActiveTaskId(existingNewTask.id);
+    if (creatingTaskRef.current || starting || tasksLoading) {
       return;
     }
 
+    creatingTaskRef.current = true;
+
     try {
-      const newTask = await api.createNewTask(project.baseDir);
-      // Task will be automatically added via the existing listener
-      setActiveTaskId(newTask.id);
+      const existingNewTask = tasks.find((task) => !task.createdAt);
+      if (existingNewTask) {
+        startActiveTaskTransition(() => {
+          // when there is active task and is new we don't need to create new one
+          setActiveTaskId(existingNewTask.id);
+          focusActiveTaskPrompt();
+        });
+        return;
+      }
+
+      startActiveTaskTransition(async () => {
+        const newTask = await api.createNewTask(project.baseDir);
+        // Task will be automatically added via the existing listener
+        setActiveTaskId(newTask.id);
+        setShouldFocusNewTask(true);
+      });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Failed to create new task:', error);
+    } finally {
+      creatingTaskRef.current = false;
     }
-  }, [api, project.baseDir, tasks]);
+  }, [starting, tasksLoading, tasks, focusActiveTaskPrompt, api, project.baseDir]);
+
+  useHotkeys(
+    TASK_HOTKEYS.NEW_TASK,
+    (e) => {
+      e.preventDefault();
+      void createNewTask();
+    },
+    { scopes: 'task', enabled: isActive, enableOnFormTags: true, enableOnContentEditable: true },
+    [TASK_HOTKEYS.NEW_TASK, createNewTask, isActive],
+  );
 
   useEffect(() => {
     const handleStartupMode = async (tasks: TaskData[]) => {
-      const mode = settings?.startupMode ?? ProjectStartMode.Empty;
-      const existingNewTask = tasks.find((task) => !task.createdAt);
-      let startupTask: TaskData | null = null;
+      startActiveTaskTransition(async () => {
+        const mode = settings?.startupMode ?? ProjectStartMode.Empty;
+        const existingNewTask = tasks.find((task) => !task.createdAt);
+        let startupTask: TaskData | null = null;
 
-      switch (mode) {
-        case ProjectStartMode.Empty: {
-          startupTask = existingNewTask || (await api.createNewTask(project.baseDir));
-          break;
-        }
-        case ProjectStartMode.Last: {
-          startupTask = tasks.filter((task) => task.createdAt && task.updatedAt).sort((a, b) => b.updatedAt!.localeCompare(a.updatedAt!))[0];
-
-          if (!startupTask) {
-            startupTask = existingNewTask || (await api.createNewTask(project.baseDir));
+        switch (mode) {
+          case ProjectStartMode.Empty: {
+            if (existingNewTask) {
+              startupTask = existingNewTask;
+            } else if (!creatingTaskRef.current) {
+              creatingTaskRef.current = true;
+              try {
+                startupTask = await api.createNewTask(project.baseDir);
+              } finally {
+                creatingTaskRef.current = false;
+              }
+            }
+            break;
           }
-          break;
-        }
-      }
+          case ProjectStartMode.Last: {
+            startupTask = tasks.filter((task) => task.createdAt && task.updatedAt).sort((a, b) => b.updatedAt!.localeCompare(a.updatedAt!))[0];
 
-      if (startupTask) {
-        setActiveTaskId(startupTask.id);
-      }
+            if (!startupTask) {
+              if (existingNewTask) {
+                startupTask = existingNewTask;
+              } else if (!creatingTaskRef.current) {
+                creatingTaskRef.current = true;
+                try {
+                  startupTask = await api.createNewTask(project.baseDir);
+                } finally {
+                  creatingTaskRef.current = false;
+                }
+              }
+            }
+            break;
+          }
+        }
+
+        if (startupTask) {
+          setActiveTaskId(startupTask.id);
+        }
+      });
     };
 
     const handleProjectStarted = () => {
@@ -163,11 +217,49 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
   }, [api, project.baseDir, settings?.startupMode]);
 
   const handleTaskSelect = useCallback((taskId: string) => {
-    setActiveTaskId(taskId);
+    startActiveTaskTransition(() => {
+      setActiveTaskId(taskId);
+      setShouldFocusNewTask(false);
+    });
   }, []);
 
+  const switchToTaskByIndex = useCallback(
+    (index: number) => {
+      const sortedTasks = getSortedVisibleTasks(optimisticTasks);
+      if (index < sortedTasks.length) {
+        const targetTask = sortedTasks[index];
+        if (targetTask && targetTask.id !== activeTaskId) {
+          handleTaskSelect(targetTask.id);
+        }
+      }
+    },
+    [activeTaskId, handleTaskSelect, optimisticTasks],
+  );
+
+  // Switch to specific task tabs (Ctrl + 1-9)
+  useHotkeys(
+    [
+      TASK_HOTKEYS.SWITCH_TASK_1,
+      TASK_HOTKEYS.SWITCH_TASK_2,
+      TASK_HOTKEYS.SWITCH_TASK_3,
+      TASK_HOTKEYS.SWITCH_TASK_4,
+      TASK_HOTKEYS.SWITCH_TASK_5,
+      TASK_HOTKEYS.SWITCH_TASK_6,
+      TASK_HOTKEYS.SWITCH_TASK_7,
+      TASK_HOTKEYS.SWITCH_TASK_8,
+      TASK_HOTKEYS.SWITCH_TASK_9,
+    ].join(','),
+    (e) => {
+      e.preventDefault();
+      const index = parseInt(e.key) - 1;
+      switchToTaskByIndex(index);
+    },
+    { enabled: isActive, scopes: 'task', enableOnFormTags: true, enableOnContentEditable: true },
+    [optimisticTasks, activeTaskId, handleTaskSelect, switchToTaskByIndex],
+  );
+
   const handleToggleCollapse = () => {
-    setIsCollapsed(!isCollapsed);
+    setIsTaskBarCollapsed(!isTaskBarCollapsed);
   };
 
   const handleUpdateTask = useCallback(
@@ -215,6 +307,38 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
     [activeTaskId, api, createNewTask, project.baseDir, setOptimisticTasks],
   );
 
+  const handleProceed = useCallback(() => {
+    if (!activeTask) {
+      return;
+    }
+    api.runPrompt(project.baseDir, activeTask.id, 'Proceed.', activeTask.currentMode || 'code');
+  }, [activeTask, api, project.baseDir]);
+
+  const handleArchiveTask = useCallback(
+    async (taskId: string) => {
+      await handleUpdateTask(taskId, { archived: true });
+    },
+    [handleUpdateTask],
+  );
+
+  const handleUnarchiveTask = useCallback(
+    async (taskId: string) => {
+      await handleUpdateTask(taskId, { archived: false });
+    },
+    [handleUpdateTask],
+  );
+
+  // Close current task
+  useHotkeys(
+    TASK_HOTKEYS.CLOSE_TASK,
+    (e) => {
+      e.preventDefault();
+      void handleDeleteTask(activeTaskId!);
+    },
+    { enabled: !!activeTaskId, scopes: 'task', enableOnFormTags: true, enableOnContentEditable: true },
+    [activeTaskId, handleDeleteTask],
+  );
+
   const handleExportTaskToImage = useCallback(() => {
     taskViewRef.current?.exportMessagesToImage();
   }, []);
@@ -231,14 +355,6 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
     [api, project.baseDir],
   );
 
-  const handleCopyTaskId = useCallback(
-    (taskId: string) => {
-      void navigator.clipboard.writeText(taskId);
-      showInfoNotification(t('taskSidebar.taskIdCopied', { taskId }));
-    },
-    [t],
-  );
-
   const handleDuplicateTask = useCallback(
     async (taskId: string) => {
       try {
@@ -253,28 +369,14 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
     [api, project.baseDir, handleTaskSelect],
   );
 
-  const renderLoading = () => {
-    return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-bg-primary to-bg-primary-light z-10">
-        <CgSpinner className="animate-spin w-10 h-10" />
-        <div className="mt-2 text-sm text-center text-text-primary">{t('common.startingUp')}</div>
-      </div>
-    );
-  };
-
   if (!projectSettings || !settings) {
-    return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-bg-primary to-bg-primary-light z-10">
-        <CgSpinner className="animate-spin w-10 h-10" />
-        <div className="mt-2 text-sm text-center text-text-primary">{t('common.loadingProjectSettings')}</div>
-      </div>
-    );
+    return <LoadingOverlay message={t('common.loadingProjectSettings')} />;
   }
 
   return (
     <TaskProvider baseDir={project.baseDir} tasks={tasks}>
       <div className="h-full w-full bg-gradient-to-b from-bg-primary to-bg-primary-light relative">
-        {starting && renderLoading()}
+        {starting && <LoadingOverlay message={t('common.startingUp')} />}
 
         <TaskSidebar
           loading={tasksLoading}
@@ -283,22 +385,22 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
           onTaskSelect={handleTaskSelect}
           createNewTask={createNewTask}
           className="h-full"
-          isCollapsed={!!isCollapsed}
+          isCollapsed={!!isTaskBarCollapsed}
           onToggleCollapse={handleToggleCollapse}
           updateTask={handleUpdateTask}
           deleteTask={handleDeleteTask}
           onExportToMarkdown={handleExportTaskToMarkdown}
           onExportToImage={handleExportTaskToImage}
-          onCopyTaskId={handleCopyTaskId}
           onDuplicateTask={handleDuplicateTask}
         />
 
         <div
-          className={`absolute top-0 ${isCollapsed ? `left-${COLLAPSED_WIDTH}` : `left-${EXPANDED_WIDTH}`} right-0 h-full transition-left duration-300 ease-in-out`}
+          className={`absolute top-0 ${isTaskBarCollapsed ? `left-${COLLAPSED_WIDTH}` : `left-${EXPANDED_WIDTH}`} right-0 h-full transition-left duration-300 ease-in-out`}
           style={{
-            left: isCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
+            left: isTaskBarCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
           }}
         >
+          {isActiveTaskSwitching && <LoadingOverlay message={t('common.loadingTask')} />}
           {activeTask && (
             <TaskView
               key={activeTask.id}
@@ -308,7 +410,12 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
               updateTask={(updates, useOptimistic) => handleUpdateTask(activeTask.id, updates, useOptimistic)}
               inputHistory={inputHistory}
               isActive={isActive}
+              shouldFocusPrompt={shouldFocusNewTask}
               showSettingsPage={showSettingsPage}
+              onProceed={handleProceed}
+              onArchiveTask={() => handleArchiveTask(activeTask.id)}
+              onUnarchiveTask={() => handleUnarchiveTask(activeTask.id)}
+              onDeleteTask={() => handleDeleteTask(activeTask.id)}
             />
           )}
         </div>

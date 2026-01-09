@@ -1,9 +1,11 @@
 import { ProjectData } from '@common/types';
-import { useCallback, useEffect, useState } from 'react';
+import { Activity, startTransition, useCallback, useEffect, useOptimistic, useState } from 'react';
 import { MdBarChart, MdSettings, MdUpload } from 'react-icons/md';
 import { PiNotebookFill } from 'react-icons/pi';
 import { useTranslation } from 'react-i18next';
+import { useHotkeys } from 'react-hotkeys-hook';
 
+import { useConfiguredHotkeys } from '@/hooks/useConfiguredHotkeys';
 import { UsageDashboard } from '@/components/usage/UsageDashboard';
 import { IconButton } from '@/components/common/IconButton';
 import { NoProjectsOpen } from '@/components/project/NoProjectsOpen';
@@ -31,28 +33,18 @@ export const Home = () => {
   const { t } = useTranslation();
   const { versions } = useVersions();
   const api = useApi();
+  const { PROJECT_HOTKEYS } = useConfiguredHotkeys();
   const [openProjects, setOpenProjects] = useState<ProjectData[]>([]);
+  const [optimisticOpenProjects, setOptimisticOpenProjects] = useOptimistic(openProjects);
   const [previousProjectBaseDir, setPreviousProjectBaseDir] = useState<string | null>(null);
   const [isOpenProjectDialogVisible, setIsOpenProjectDialogVisible] = useState(false);
-  const [isCtrlPressed, setIsCtrlPressed] = useState(false);
-  const [isTabbing, setIsTabbing] = useState(false);
   const [showSettingsInfo, setShowSettingsInfo] = useState<ShowSettingsInfo | null>(null);
   const [releaseNotesContent, setReleaseNotesContent] = useState<string | null>(null);
   const [isUsageDashboardVisible, setIsUsageDashboardVisible] = useState(false);
   const [isModelLibraryVisible, setIsModelLibraryVisible] = useState(false);
+  const [isCtrlTabbing, setIsCtrlTabbing] = useState(false);
 
-  const activeProject = openProjects.find((project) => project.active) || openProjects[0];
-
-  const handleShowSettingsPage = useCallback((pageId?: string, options?: Record<string, unknown>) => {
-    if (pageId) {
-      setShowSettingsInfo({
-        pageId,
-        options,
-      });
-    } else {
-      setShowSettingsInfo(null);
-    }
-  }, []);
+  const activeProject = optimisticOpenProjects.find((project) => project.active) || optimisticOpenProjects[0];
 
   const handleReorderProjects = async (reorderedProjects: ProjectData[]) => {
     setOpenProjects(reorderedProjects);
@@ -117,90 +109,262 @@ export const Home = () => {
   }, [api]);
 
   const setActiveProject = useCallback(
-    async (baseDir: string) => {
-      const projects = await api.setActiveProject(baseDir);
-      setOpenProjects(projects);
+    (baseDir: string) => {
+      startTransition(async () => {
+        setOptimisticOpenProjects((prev) =>
+          prev.map((project) => ({
+            ...project,
+            active: project.baseDir === baseDir,
+          })),
+        );
+        const projects = await api.setActiveProject(baseDir);
+        setOpenProjects(projects);
+      });
     },
-    [api],
+    [api, setOptimisticOpenProjects],
   );
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
-        setIsCtrlPressed(true);
-      }
+  const handleCloseProject = useCallback(
+    (projectBaseDir: string) => {
+      startTransition(async () => {
+        setOptimisticOpenProjects((prev) => prev.filter((project) => project.baseDir !== projectBaseDir));
+        const updatedProjects = await api.removeOpenProject(projectBaseDir);
+        setOpenProjects(updatedProjects);
+      });
+    },
+    [api, setOptimisticOpenProjects],
+  );
 
-      if (e.key === 'Tab' && isCtrlPressed && openProjects.length > 1) {
-        e.preventDefault();
-        setIsTabbing(true);
-        if (!isTabbing && previousProjectBaseDir && openProjects.some((project) => project.baseDir === previousProjectBaseDir)) {
-          // First TAB press - switch to previous tab
-          setPreviousProjectBaseDir(activeProject?.baseDir);
-          void setActiveProject(previousProjectBaseDir);
-        } else {
-          // Subsequent TAB presses - cycle through tabs
-          const currentIndex = openProjects.findIndex((project) => project.baseDir === activeProject?.baseDir);
-          const nextIndex = (currentIndex + 1) % openProjects.length;
-          void setActiveProject(openProjects[nextIndex].baseDir);
-          setPreviousProjectBaseDir(activeProject?.baseDir);
+  // Close current project tab
+  useHotkeys(
+    PROJECT_HOTKEYS.CLOSE_PROJECT,
+    (e) => {
+      e.preventDefault();
+      if (activeProject) {
+        void handleCloseProject(activeProject.baseDir);
+      }
+    },
+    { scopes: 'home', enableOnFormTags: true, enableOnContentEditable: true },
+    [activeProject, handleCloseProject, PROJECT_HOTKEYS.CLOSE_PROJECT],
+  );
+
+  // Open new project dialog
+  useHotkeys(
+    PROJECT_HOTKEYS.NEW_PROJECT,
+    (e) => {
+      e.preventDefault();
+      setIsOpenProjectDialogVisible(true);
+    },
+    { scopes: 'home', enableOnFormTags: true, enableOnContentEditable: true },
+    [PROJECT_HOTKEYS.NEW_PROJECT, setIsOpenProjectDialogVisible],
+  );
+
+  // Open usage dashboard
+  useHotkeys(
+    PROJECT_HOTKEYS.USAGE_DASHBOARD,
+    (e) => {
+      e.preventDefault();
+      setIsUsageDashboardVisible(true);
+    },
+    { scopes: 'home', enableOnFormTags: true, enableOnContentEditable: true },
+    [PROJECT_HOTKEYS.USAGE_DASHBOARD, setIsUsageDashboardVisible],
+  );
+
+  // Open model library
+  useHotkeys(
+    PROJECT_HOTKEYS.MODEL_LIBRARY,
+    (e) => {
+      e.preventDefault();
+      setIsModelLibraryVisible(true);
+    },
+    { scopes: 'home', enableOnFormTags: true, enableOnContentEditable: true },
+    [PROJECT_HOTKEYS.MODEL_LIBRARY, setIsModelLibraryVisible],
+  );
+
+  // Open settings
+  useHotkeys(
+    PROJECT_HOTKEYS.SETTINGS,
+    (e) => {
+      e.preventDefault();
+      setShowSettingsInfo({
+        pageId: 'general',
+      });
+    },
+    { scopes: 'home', enableOnFormTags: true, enableOnContentEditable: true },
+    [PROJECT_HOTKEYS.SETTINGS, setShowSettingsInfo],
+  );
+
+  // Close overlays on Escape
+  useHotkeys(
+    'esc',
+    (e) => {
+      e.preventDefault();
+      if (isUsageDashboardVisible) {
+        setIsUsageDashboardVisible(false);
+      } else if (isOpenProjectDialogVisible) {
+        setIsOpenProjectDialogVisible(false);
+      } else if (releaseNotesContent) {
+        void api.clearReleaseNotes();
+        setReleaseNotesContent(null);
+      }
+    },
+    {
+      enabled: !!(isUsageDashboardVisible || isOpenProjectDialogVisible || releaseNotesContent),
+      scopes: 'home',
+      enableOnFormTags: true,
+      enableOnContentEditable: true,
+    },
+    [isUsageDashboardVisible, isOpenProjectDialogVisible, releaseNotesContent, api],
+  );
+
+  const switchToProjectByIndex = useCallback(
+    (index: number) => {
+      if (index < optimisticOpenProjects.length) {
+        const targetProject = optimisticOpenProjects[index];
+        if (targetProject && targetProject.baseDir !== activeProject?.baseDir) {
+          void setActiveProject(targetProject.baseDir);
         }
       }
     },
-    [isCtrlPressed, activeProject?.baseDir, openProjects, previousProjectBaseDir, isTabbing, setActiveProject],
+    [optimisticOpenProjects, activeProject, setActiveProject],
   );
 
-  const handleKeyUp = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Control') {
-      setIsCtrlPressed(false);
-      setIsTabbing(false);
-    }
-  }, []);
+  // Switch to specific project tabs (Alt/Cmd + 1-9)
+  useHotkeys(
+    [
+      PROJECT_HOTKEYS.SWITCH_PROJECT_1,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_2,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_3,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_4,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_5,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_6,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_7,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_8,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_9,
+    ].join(','),
+    (e) => {
+      e.preventDefault();
+      const key = e.key;
+      const index = parseInt(key) - 1;
+      switchToProjectByIndex(index);
+    },
+    { scopes: 'home', enableOnFormTags: true, enableOnContentEditable: true },
+    [
+      optimisticOpenProjects,
+      activeProject,
+      setActiveProject,
+      switchToProjectByIndex,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_1,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_2,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_3,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_4,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_5,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_6,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_7,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_8,
+      PROJECT_HOTKEYS.SWITCH_PROJECT_9,
+    ],
+  );
 
+  // Ctrl+Tab cycling (forward)
+  useHotkeys(
+    PROJECT_HOTKEYS.CYCLE_NEXT_PROJECT,
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (optimisticOpenProjects.length <= 1) {
+        return;
+      }
+
+      setIsCtrlTabbing(true);
+      if (!isCtrlTabbing && previousProjectBaseDir && optimisticOpenProjects.some((project) => project.baseDir === previousProjectBaseDir)) {
+        setPreviousProjectBaseDir(activeProject?.baseDir || null);
+        void setActiveProject(previousProjectBaseDir);
+      } else {
+        const currentIndex = optimisticOpenProjects.findIndex((project) => project.baseDir === activeProject?.baseDir);
+        const nextIndex = (currentIndex + 1) % optimisticOpenProjects.length;
+        void setActiveProject(optimisticOpenProjects[nextIndex].baseDir);
+        setPreviousProjectBaseDir(activeProject?.baseDir || null);
+      }
+    },
+    { scopes: 'home', keydown: true, keyup: false, enableOnFormTags: true, enableOnContentEditable: true },
+    [optimisticOpenProjects, activeProject, previousProjectBaseDir, isCtrlTabbing, setActiveProject, PROJECT_HOTKEYS.CYCLE_NEXT_PROJECT],
+  );
+
+  // Ctrl+Shift+Tab cycling (backward)
+  useHotkeys(
+    PROJECT_HOTKEYS.CYCLE_PREV_PROJECT,
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (optimisticOpenProjects.length <= 1) {
+        return;
+      }
+
+      setIsCtrlTabbing(true);
+      if (!isCtrlTabbing && previousProjectBaseDir && optimisticOpenProjects.some((project) => project.baseDir === previousProjectBaseDir)) {
+        setPreviousProjectBaseDir(activeProject?.baseDir || null);
+        void setActiveProject(previousProjectBaseDir);
+      } else {
+        const currentIndex = optimisticOpenProjects.findIndex((project) => project.baseDir === activeProject?.baseDir);
+        const prevIndex = (currentIndex - 1 + optimisticOpenProjects.length) % optimisticOpenProjects.length;
+        void setActiveProject(optimisticOpenProjects[prevIndex].baseDir);
+        setPreviousProjectBaseDir(activeProject?.baseDir || null);
+      }
+    },
+    { scopes: 'home', keydown: true, keyup: false, enableOnFormTags: true, enableOnContentEditable: true },
+    [optimisticOpenProjects, activeProject, previousProjectBaseDir, isCtrlTabbing, setActiveProject, PROJECT_HOTKEYS.CYCLE_PREV_PROJECT],
+  );
+
+  // Reset Ctrl+Tab state on Control key up
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        setIsCtrlTabbing(false);
+      }
     };
-  }, [handleKeyDown, handleKeyUp]);
+
+    window.addEventListener('keyup', handleKeyUp);
+    return () => window.removeEventListener('keyup', handleKeyUp);
+  }, []);
 
   const handleAddProject = async (baseDir: string) => {
     const projects = await api.addOpenProject(baseDir);
     setOpenProjects(projects);
   };
 
-  const handleCloseProject = async (projectBaseDir: string) => {
-    const updatedProjects = await api.removeOpenProject(projectBaseDir);
-    setOpenProjects(updatedProjects);
-  };
-
   const handleCloseOtherProjects = async (baseDir: string) => {
-    const projectsToClose = openProjects.filter((p) => p.baseDir !== baseDir);
+    const projectsToClose = optimisticOpenProjects.filter((p) => p.baseDir !== baseDir);
     for (const project of projectsToClose) {
-      await handleCloseProject(project.baseDir);
+      handleCloseProject(project.baseDir);
     }
   };
 
   const handleCloseAllProjects = async () => {
-    for (const project of openProjects) {
-      await handleCloseProject(project.baseDir);
+    for (const project of optimisticOpenProjects) {
+      handleCloseProject(project.baseDir);
     }
   };
 
-  const projectOperations = {
-    onCloseProject: handleCloseProject,
-    onCloseOtherProjects: handleCloseOtherProjects,
-    onCloseAllProjects: handleCloseAllProjects,
-  };
+  const handleShowSettingsPage = useCallback((pageId?: string, options?: Record<string, unknown>) => {
+    if (pageId) {
+      setShowSettingsInfo({
+        pageId,
+        options,
+      });
+    } else {
+      setShowSettingsInfo(null);
+    }
+  }, []);
 
   const renderProjectPanels = () =>
-    openProjects.map((project) => (
+    optimisticOpenProjects.map((project) => (
       <ProjectSettingsProvider key={project.baseDir} baseDir={project.baseDir}>
         <div
           className="absolute top-0 left-0 w-full h-full"
           style={{
-            display: activeProject?.baseDir === project.baseDir ? 'block' : 'none',
+            contentVisibility: activeProject?.baseDir === project.baseDir ? 'visible' : 'hidden',
+            zIndex: activeProject?.baseDir === project.baseDir ? 1 : 0,
           }}
         >
           <ProjectView project={project} isActive={activeProject?.baseDir === project.baseDir} showSettingsPage={handleShowSettingsPage} />
@@ -235,11 +399,13 @@ export const Home = () => {
       <div className="flex flex-col h-full border-2 border-border-default relative">
         <div className="flex border-b-2 border-border-default justify-between bg-gradient-to-b from-bg-primary to-bg-primary-light">
           <ProjectTabs
-            openProjects={openProjects}
+            openProjects={optimisticOpenProjects}
             activeProject={activeProject}
             onAddProject={() => setIsOpenProjectDialogVisible(true)}
             onSetActiveProject={setActiveProject}
-            projectOperations={projectOperations}
+            onCloseProject={handleCloseProject}
+            onCloseAllProjects={handleCloseAllProjects}
+            onCloseOtherProjects={handleCloseOtherProjects}
             onReorderProjects={handleReorderProjects}
           />
           <div className="flex items-center">
@@ -284,18 +450,22 @@ export const Home = () => {
           </div>
         </div>
         {isOpenProjectDialogVisible && (
-          <OpenProjectDialog onClose={() => setIsOpenProjectDialogVisible(false)} onAddProject={handleAddProject} openProjects={openProjects} />
+          <OpenProjectDialog onClose={() => setIsOpenProjectDialogVisible(false)} onAddProject={handleAddProject} openProjects={optimisticOpenProjects} />
         )}
-        {showSettingsInfo !== null && (
+        <Activity mode={showSettingsInfo !== null ? 'visible' : 'hidden'} key={showSettingsInfo?.pageId || 'general'}>
           <SettingsPage
             onClose={() => setShowSettingsInfo(null)}
-            initialPageId={showSettingsInfo.pageId}
-            initialOptions={showSettingsInfo.options}
-            openProjects={openProjects}
+            initialPageId={showSettingsInfo?.pageId || 'general'}
+            initialOptions={showSettingsInfo?.options}
+            openProjects={optimisticOpenProjects}
           />
-        )}
-        {isUsageDashboardVisible && <UsageDashboard onClose={() => setIsUsageDashboardVisible(false)} />}
-        {isModelLibraryVisible && <ModelLibrary onClose={() => setIsModelLibraryVisible(false)} />}
+        </Activity>
+        <Activity mode={isUsageDashboardVisible ? 'visible' : 'hidden'}>
+          <UsageDashboard onClose={() => setIsUsageDashboardVisible(false)} />
+        </Activity>
+        <Activity mode={isModelLibraryVisible ? 'visible' : 'hidden'}>
+          <ModelLibrary onClose={() => setIsModelLibraryVisible(false)} />
+        </Activity>
         {releaseNotesContent && versions && (
           <HtmlInfoDialog
             title={`${t('settings.about.releaseNotes')} - ${versions.aiderDeskCurrentVersion}`}
@@ -305,7 +475,7 @@ export const Home = () => {
         )}
         {!releaseNotesContent && <TelemetryInfoDialog />}
         <div className="flex-1 overflow-hidden relative">
-          {openProjects.length > 0 ? renderProjectPanels() : <NoProjectsOpen onOpenProject={() => setIsOpenProjectDialogVisible(true)} />}
+          {optimisticOpenProjects.length > 0 ? renderProjectPanels() : <NoProjectsOpen onOpenProject={() => setIsOpenProjectDialogVisible(true)} />}
         </div>
       </div>
     </div>

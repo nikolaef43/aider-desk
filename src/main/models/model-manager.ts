@@ -29,6 +29,7 @@ import { openaiProviderStrategy } from './providers/openai';
 import { openaiCompatibleProviderStrategy } from './providers/openai-compatible';
 import { openrouterProviderStrategy } from './providers/openrouter';
 import { requestyProviderStrategy } from './providers/requesty';
+import { syntheticProviderStrategy } from './providers/synthetic';
 import { vertexAiProviderStrategy } from './providers/vertex-ai';
 import { zaiPlanProviderStrategy } from './providers/zai-plan';
 
@@ -92,6 +93,7 @@ export class ModelManager {
     'openai-compatible': openaiCompatibleProviderStrategy,
     openrouter: openrouterProviderStrategy,
     requesty: requestyProviderStrategy,
+    synthetic: syntheticProviderStrategy,
     'vertex-ai': vertexAiProviderStrategy,
     'zai-plan': zaiPlanProviderStrategy,
   };
@@ -258,6 +260,12 @@ export class ModelManager {
         const loadModels = async () => {
           // Load models from each profile for this provider type
           for (const profile of profilesForProvider) {
+            // Skip disabled providers
+            if (profile.disabled) {
+              logger.debug(`Skipping disabled provider profile ${profile.id}`);
+              continue;
+            }
+
             let providerModels: Model[] = [];
             const response = await strategy.loadModels(profile, this.store.getSettings());
 

@@ -11,7 +11,7 @@ import {
   TodoItem,
   AgentProfile,
 } from '@common/types';
-import { ipcMain } from 'electron';
+import { ipcMain, clipboard } from 'electron';
 
 import { EventsHandler } from './events-handler';
 
@@ -179,6 +179,10 @@ export const setupIpcHandlers = (eventsHandler: EventsHandler, serverController:
     void eventsHandler.redoLastUserPrompt(baseDir, taskId, mode, updatedPrompt);
   });
 
+  ipcMain.on('resume-task', (_, baseDir: string, taskId: string) => {
+    void eventsHandler.resumeTask(baseDir, taskId);
+  });
+
   ipcMain.handle('compact-conversation', async (_event, baseDir: string, taskId: string, mode: Mode, customInstructions?: string) => {
     return await eventsHandler.compactConversation(baseDir, taskId, mode, customInstructions);
   });
@@ -281,6 +285,10 @@ export const setupIpcHandlers = (eventsHandler: EventsHandler, serverController:
 
   ipcMain.handle('open-logs-directory', async () => {
     return eventsHandler.openLogsDirectory();
+  });
+
+  ipcMain.handle('open-path', async (_, path: string) => {
+    return eventsHandler.openPath(path);
   });
 
   ipcMain.handle('get-custom-commands', async (_, baseDir: string) => {
@@ -447,5 +455,9 @@ export const setupIpcHandlers = (eventsHandler: EventsHandler, serverController:
 
   ipcMain.handle('get-memory-embedding-progress', async () => {
     return eventsHandler.getMemoryEmbeddingProgress();
+  });
+
+  ipcMain.handle('clipboard-write-text', async (_, text: string) => {
+    clipboard.writeText(text);
   });
 };

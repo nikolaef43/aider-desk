@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { HotkeysProvider } from 'react-hotkeys-hook';
 import { ApplicationAPI } from '@common/api';
 import { ProjectData } from '@common/types';
 
@@ -25,9 +26,25 @@ vi.mock('@/contexts/SettingsContext', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useConfiguredHotkeys', async () => {
+  const { getHotkeys } = await import('@/utils/hotkeys');
+
+  return {
+    useConfiguredHotkeys: () => getHotkeys(),
+  };
+});
+
 // Mock components
 vi.mock('@/components/project/ProjectTabs', () => ({
   ProjectTabs: () => <div data-testid="project-tabs" />,
+}));
+
+vi.mock('@/components/project/ProjectView', () => ({
+  ProjectView: () => <div data-testid="project-view" />,
+}));
+
+vi.mock('@/components/settings/SettingsPage', () => ({
+  SettingsPage: () => <div data-testid="settings-page" />,
 }));
 
 vi.mock('@/components/project/NoProjectsOpen', () => ({
@@ -65,7 +82,11 @@ describe('Home', () => {
   });
 
   it('renders and shows NoProjectsOpen when no projects are loaded', async () => {
-    render(<Home />);
+    render(
+      <HotkeysProvider initiallyActiveScopes={['home']}>
+        <Home />
+      </HotkeysProvider>,
+    );
 
     await waitFor(() => {
       expect(screen.getByTestId('no-projects')).toBeInTheDocument();
@@ -73,7 +94,11 @@ describe('Home', () => {
   });
 
   it('opens Model Library when icon is clicked', async () => {
-    render(<Home />);
+    render(
+      <HotkeysProvider initiallyActiveScopes={['home']}>
+        <Home />
+      </HotkeysProvider>,
+    );
 
     const modelLibraryButton = screen.getByTitle('projectBar.modelLibrary');
     fireEvent.click(modelLibraryButton);
@@ -91,22 +116,22 @@ describe('Home', () => {
       return Promise.resolve(mockProjects.map((p) => ({ ...p, active: p.baseDir === baseDir })));
     });
 
-    render(<Home />);
+    render(
+      <HotkeysProvider initiallyActiveScopes={['home']}>
+        <Home />
+      </HotkeysProvider>,
+    );
 
     await waitFor(() => {
       expect(screen.queryByTestId('no-projects')).not.toBeInTheDocument();
     });
 
     // Simulate Ctrl+Tab
-    fireEvent.keyDown(window, { key: 'Control' });
-    fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true });
+    fireEvent.keyDown(document, { key: 'Tab', ctrlKey: true });
 
     await waitFor(() => {
       expect(mockApi.setActiveProject).toHaveBeenCalledWith('/project/2');
     });
-
-    // Release Control
-    fireEvent.keyUp(window, { key: 'Control' });
   });
 
   it('switches back to previous project on first Ctrl+Tab', async () => {
@@ -116,7 +141,11 @@ describe('Home', () => {
     ] as ProjectData[];
     mockApi.getOpenProjects.mockResolvedValue(mockProjects);
 
-    render(<Home />);
+    render(
+      <HotkeysProvider initiallyActiveScopes={['home']}>
+        <Home />
+      </HotkeysProvider>,
+    );
 
     await waitFor(() => {
       expect(screen.queryByTestId('no-projects')).not.toBeInTheDocument();
@@ -128,17 +157,14 @@ describe('Home', () => {
       { baseDir: '/project/2', active: true },
     ] as ProjectData[]);
 
-    fireEvent.keyDown(window, { key: 'Control' });
-    fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true });
-    fireEvent.keyUp(window, { key: 'Control' });
+    fireEvent.keyDown(document, { key: 'Tab', ctrlKey: true });
 
     await waitFor(() => {
       expect(mockApi.setActiveProject).toHaveBeenCalledWith('/project/2');
     });
 
     // Now Ctrl+Tab again should go back to Project 1 (the previous one)
-    fireEvent.keyDown(window, { key: 'Control' });
-    fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true });
+    fireEvent.keyDown(document, { key: 'Tab', ctrlKey: true });
 
     await waitFor(() => {
       expect(mockApi.setActiveProject).toHaveBeenCalledWith('/project/1');

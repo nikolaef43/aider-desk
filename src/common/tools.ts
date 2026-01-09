@@ -59,12 +59,14 @@ export const MEMORY_TOOL_STORE = 'store_memory';
 export const MEMORY_TOOL_RETRIEVE = 'retrieve_memory';
 export const MEMORY_TOOL_DELETE = 'delete_memory';
 export const MEMORY_TOOL_LIST = 'list_memories';
+export const MEMORY_TOOL_UPDATE = 'update_memory';
 
 export const MEMORY_TOOL_DESCRIPTIONS = {
   [MEMORY_TOOL_STORE]: 'Stores important information, patterns, or preferences into memory for future tasks',
   [MEMORY_TOOL_RETRIEVE]: 'Searches and retrieves relevant memories based on a query',
   [MEMORY_TOOL_DELETE]: 'Deletes a specific memory',
   [MEMORY_TOOL_LIST]: 'Lists all stored memories with optional filtering',
+  [MEMORY_TOOL_UPDATE]: 'Updates an existing memory with new content',
 } as const;
 
 export const POWER_TOOL_DESCRIPTIONS = {
@@ -88,7 +90,7 @@ const myFunction = () => {
     'Search code in the repository using Elasticsearch-like query syntax. Use this tool first for any code-related questions to find out relationships between files and what files need to be changed.',
   [POWER_TOOL_BASH]: 'Executes a shell command. For safety, commands may be sandboxed or require user approval (approval handled by Agent).',
   [POWER_TOOL_FETCH]:
-    'Fetches and returns the content of a web page from a specified URL. Useful for retrieving web content, documentation, or external resources.',
+    'Fetches and returns the content of a web page from a specified URL. Useful for retrieving web content, documentation, or external resources. Supports three formats: "markdown" (default, converts HTML to markdown), "html" (returns raw HTML), "raw" (fetches raw content via HTTP, ideal for API responses or raw files like GitHub raw files).',
   [SUBAGENTS_TOOL_RUN_TASK]: 'Description is generated dynamically based on enabled agent profiles with subagent functionality.',
 } as const;
 

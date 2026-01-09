@@ -236,13 +236,13 @@ export class BrowserApi implements ApplicationAPI {
     return response.data;
   }
 
-  private async delete<T>(endpoint: string): Promise<T> {
-    const response = await this.apiClient.delete<T>(endpoint);
+  private async delete<T>(endpoint: string, params?: Record<string, unknown>): Promise<T> {
+    const response = await this.apiClient.delete<T>(endpoint, { params });
     return response.data;
   }
 
-  private async put<B, R>(endpoint: string, body: B): Promise<R> {
-    const response = await this.apiClient.put<R>(endpoint, body);
+  private async put<B, R>(endpoint: string, body: B, params?: Record<string, unknown>): Promise<R> {
+    const response = await this.apiClient.put<R>(endpoint, body, { params });
     return response.data;
   }
 
@@ -283,6 +283,12 @@ export class BrowserApi implements ApplicationAPI {
       taskId,
       mode,
       updatedPrompt,
+    });
+  }
+  resumeTask(baseDir: string, taskId: string): void {
+    this.post('/project/resume-task', {
+      projectDir: baseDir,
+      taskId,
     });
   }
   answerQuestion(baseDir: string, taskId: string, answer: string): void {
@@ -378,12 +384,12 @@ export class BrowserApi implements ApplicationAPI {
     });
   }
   async isValidPath(baseDir: string, path: string): Promise<boolean> {
-    return this.post<{ projectDir: string; path: string }, { isValid: boolean }>('/project/validate-path', { projectDir: baseDir, path }).then(
-      (res) => res.isValid,
-    );
+    const res = await this.post<{ projectDir: string; path: string }, { isValid: boolean }>('/project/validate-path', { projectDir: baseDir, path });
+    return res.isValid;
   }
   async isProjectPath(path: string): Promise<boolean> {
-    return this.post<{ path: string }, { isProject: boolean }>('/project/is-project-path', { path }).then((res) => res.isProject);
+    const res = await this.post<{ path: string }, { isProject: boolean }>('/project/is-project-path', { path });
+    return res.isProject;
   }
   dropFile(baseDir: string, taskId: string, path: string): void {
     this.post('/drop-context-file', { projectDir: baseDir, taskId, path });
@@ -460,12 +466,27 @@ export class BrowserApi implements ApplicationAPI {
   loadTask(baseDir: string, id: string): Promise<TaskStateData> {
     return this.post('/project/tasks/load', { projectDir: baseDir, id });
   }
-  exportTaskToMarkdown(baseDir: string, taskId: string): Promise<void> {
-    return this.post('/project/tasks/export-markdown', {
+
+  async exportTaskToMarkdown(baseDir: string, taskId: string): Promise<void> {
+    const response = await this.apiClient.post('/project/tasks/export-markdown', {
       projectDir: baseDir,
       taskId,
     });
+
+    const markdownContent = response.data;
+    const filename = `session-${new Date().toISOString().replace(/:/g, '-').substring(0, 19)}.md`;
+
+    const blob = new Blob([markdownContent], { type: 'text/markdown' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   }
+
   getRecentProjects(): Promise<string[]> {
     return this.get('/settings/recent-projects');
   }
@@ -509,13 +530,15 @@ export class BrowserApi implements ApplicationAPI {
     return this.post('/download-latest', {});
   }
   async getReleaseNotes(): Promise<string | null> {
-    return this.get<{ releaseNotes: string | null }>('/release-notes').then((res) => res.releaseNotes);
+    const { releaseNotes } = await this.get<{ releaseNotes: string | null }>('/release-notes');
+    return releaseNotes;
   }
   clearReleaseNotes(): Promise<void> {
     return this.post('/clear-release-notes', {});
   }
   async getOS(): Promise<OS> {
-    return this.get<{ os: OS }>('/os').then((res) => res.os);
+    const { os } = await this.get<{ os: OS }>('/os');
+    return os;
   }
   getProviderModels(reload?: boolean): Promise<ProviderModelsData> {
     return this.get('/models', { reload });
@@ -527,10 +550,10 @@ export class BrowserApi implements ApplicationAPI {
     return this.post('/providers', providers);
   }
   upsertModel(providerId: string, modelId: string, model: Model): Promise<ProviderModelsData> {
-    return this.put(`/providers/${providerId}/models/${modelId}`, model);
+    return this.put(`/providers/${providerId}/models`, model, { modelId });
   }
   deleteModel(providerId: string, modelId: string): Promise<ProviderModelsData> {
-    return this.delete(`/providers/${providerId}/models/${modelId}`);
+    return this.delete(`/providers/${providerId}/models`, { modelId });
   }
   updateModels(modelUpdates: Array<{ providerId: string; modelId: string; model: Model }>): Promise<ProviderModelsData> {
     return this.put('/models', modelUpdates);
@@ -817,22 +840,49 @@ export class BrowserApi implements ApplicationAPI {
     return this.get('/memories');
   }
 
-  deleteMemory(id: string): Promise<boolean> {
-    return this.delete<{ ok: boolean }>(`/memories/${id}`).then((r) => r.ok);
+  async deleteMemory(id: string): Promise<boolean> {
+    const { ok } = await this.delete<{ ok: boolean }>(`/memories/${id}`);
+    return ok;
   }
 
   getMemoryEmbeddingProgress(): Promise<MemoryEmbeddingProgress> {
     return this.get('/memories/embedding-progress');
   }
 
-  deleteProjectMemories(projectId: string): Promise<number> {
-    return this.apiClient
-      .delete<{ deletedCount: number }>('/memories', {
-        data: {
-          projectId,
-        },
-      })
-      .then((r) => r.data.deletedCount);
+  async deleteProjectMemories(projectId: string): Promise<number> {
+    const { data } = await this.apiClient.delete<{ deletedCount: number }>('/memories', {
+      data: {
+        projectId,
+      },
+    });
+    return data.deletedCount;
+  }
+
+  async writeToClipboard(text: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Fallback for mobile browsers and non-secure contexts
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      try {
+        document.execCommand('copy');
+      } finally {
+        document.body.removeChild(textArea);
+      }
+    }
+  }
+
+  async openPath(): Promise<boolean> {
+    // Not available in browser context
+    return false;
   }
 
   // Agent profile operations
