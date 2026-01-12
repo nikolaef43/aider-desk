@@ -67,9 +67,9 @@ const EMPTY_TASK_STATE: TaskState = {
 const processingResponseMessageMap = new Map<string, ResponseMessage>();
 
 interface TaskEventSubscriberProps {
-  taskId: string;
   baseDir: string;
-  task: TaskData;
+  taskId: string;
+  state?: string;
   updateTaskState: (taskId: string, updates: Partial<TaskState>) => void;
   clearSession: (taskId: string, messagesOnly: boolean) => void;
   setQuestion: (taskId: string, question: QuestionData | null) => void;
@@ -78,9 +78,9 @@ interface TaskEventSubscriberProps {
 }
 
 const TaskEventSubscriber: React.FC<TaskEventSubscriberProps> = ({
-  taskId,
   baseDir,
-  task,
+  taskId,
+  state,
   updateTaskState,
   clearSession,
   setQuestion,
@@ -89,11 +89,13 @@ const TaskEventSubscriber: React.FC<TaskEventSubscriberProps> = ({
 }) => {
   const api = useApi();
   const { t } = useTranslation();
-  const previousState = usePrevious(task.state);
+  const previousState = usePrevious(state);
 
-  if (previousState === DefaultTaskState.InProgress && task.state !== DefaultTaskState.InProgress) {
-    setMessages(taskId, (prevMessages) => prevMessages.filter((message) => !isLoadingMessage(message)));
-  }
+  useEffect(() => {
+    if (previousState === DefaultTaskState.InProgress && state !== DefaultTaskState.InProgress) {
+      setMessages(taskId, (prevMessages) => prevMessages.filter((message) => !isLoadingMessage(message)));
+    }
+  }, [previousState, setMessages, state, taskId]);
 
   useEffect(() => {
     const setAiderTotalCost = (aiderTotalCost: number) => {
@@ -235,6 +237,8 @@ const TaskEventSubscriber: React.FC<TaskEventSubscriberProps> = ({
           setAiderTotalCost(usageReport.aiderTotalCost);
         }
       }
+
+      processingResponseMessageMap.delete(taskId);
     };
 
     const handleCommandOutput = ({ command, output }: CommandOutputData) => {
@@ -513,7 +517,7 @@ const TaskEventSubscriber: React.FC<TaskEventSubscriberProps> = ({
 export interface TaskContextType {
   getTaskState: (taskId: string, loadIfNotLoaded?: boolean) => TaskState | null;
   clearSession: (taskId: string, messagesOnly: boolean) => void;
-  restartTask: (taskId: string) => void;
+  resetTask: (taskId: string) => void;
   setMessages: (taskId: string, updateMessages: (prevState: Message[]) => Message[]) => void;
   setTodoItems: (taskId: string, updateTodoItems: (prev: TodoItem[]) => TodoItem[]) => void;
   setAiderModelsData: (taskId: string, modelsData: ModelsData | null) => void;
@@ -676,9 +680,9 @@ export const TaskProvider: React.FC<{
     [updateTaskState],
   );
 
-  const restartTask = useCallback(
+  const resetTask = useCallback(
     (taskId: string) => {
-      api.restartTask(baseDir, taskId);
+      api.resetTask(baseDir, taskId);
       clearSession(taskId, false);
     },
     [api, baseDir, clearSession],
@@ -712,13 +716,10 @@ export const TaskProvider: React.FC<{
 
   const answerQuestion = useCallback(
     (taskId: string, answer: string) => {
-      const taskState = taskStateMap.get(taskId);
-      if (taskState?.question) {
-        api.answerQuestion(baseDir, taskId, answer);
-        updateTaskState(taskId, { question: null });
-      }
+      api.answerQuestion(baseDir, taskId, answer);
+      updateTaskState(taskId, { question: null });
     },
-    [api, baseDir, taskStateMap, updateTaskState],
+    [api, baseDir, updateTaskState],
   );
 
   const interruptResponse = useCallback(
@@ -776,7 +777,7 @@ export const TaskProvider: React.FC<{
       value={{
         getTaskState,
         clearSession,
-        restartTask,
+        resetTask,
         setTodoItems,
         setMessages,
         setAiderModelsData,
@@ -790,8 +791,8 @@ export const TaskProvider: React.FC<{
         <TaskEventSubscriber
           key={task.id}
           baseDir={baseDir}
-          task={task}
           taskId={task.id}
+          state={task.state}
           updateTaskState={updateTaskState}
           clearSession={clearSession}
           setQuestion={setQuestion}

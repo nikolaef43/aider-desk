@@ -10,6 +10,7 @@ import {
   OllamaProvider,
   OpenAiCompatibleProvider,
   OpenAiProvider,
+  OpenCodeProvider,
   OpenRouterProvider,
   RequestyProvider,
   VertexAiProvider,
@@ -515,6 +516,7 @@ export interface TaskSettings {
   smartTaskState: boolean;
   autoGenerateTaskName: boolean;
   showTaskStateActions: boolean;
+  worktreeSymlinkFolders: string[];
 }
 
 export interface MemoryConfig {
@@ -577,6 +579,7 @@ export interface SettingsData {
     lmstudio?: LmStudioProvider;
     minimax?: MinimaxProvider;
     'openai-compatible'?: OpenAiCompatibleProvider;
+    opencode?: OpenCodeProvider;
     openrouter?: OpenRouterProvider;
     requesty?: RequestyProvider;
     synthetic?: SyntheticProvider;

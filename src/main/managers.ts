@@ -25,6 +25,8 @@ export interface ManagersResult {
   eventsHandler: EventsHandler;
   serverController: ServerController;
   cleanup: () => Promise<void>;
+  modelManager: ModelManager;
+  agentProfileManager: AgentProfileManager;
 }
 
 export const initManagers = async (store: Store, mainWindow: BrowserWindow | null = null): Promise<ManagersResult> => {
@@ -36,7 +38,7 @@ export const initManagers = async (store: Store, mainWindow: BrowserWindow | nul
   const mcpManager = new McpManager();
   const activeProject = store.getOpenProjects().find((project) => project.active);
 
-  void mcpManager.initMcpConnectors(store.getSettings().mcpServers, activeProject?.baseDir);
+  void mcpManager.initMcpConnectors(store.getSettings().mcpServers, activeProject?.baseDir, activeProject?.baseDir);
 
   // Initialize event manager (no main window in headless)
   const eventManager = new EventManager(mainWindow);
@@ -166,5 +168,7 @@ export const initManagers = async (store: Store, mainWindow: BrowserWindow | nul
     eventsHandler,
     serverController,
     cleanup,
+    modelManager,
+    agentProfileManager,
   };
 };

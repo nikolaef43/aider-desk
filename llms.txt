@@ -114,11 +114,13 @@ src/
         gemini.ts
         gpustack.ts
         groq.ts
+        litellm.ts
         lm-studio.ts
         minimax.ts
         ollama.ts
         openai-compatible.ts
         openai.ts
+        opencode.ts
         openrouter.ts
         requesty.ts
         synthetic.ts
@@ -252,6 +254,7 @@ src/
           BaseDialog.tsx
           Button.tsx
           Checkbox.tsx
+          Chip.tsx
           CodeBlock.tsx
           CodeInline.tsx
           CompactSelect.tsx
@@ -345,6 +348,7 @@ src/
             GpustackParameters.tsx
             GroqParameters.tsx
             index.ts
+            LitellmParameters.tsx
             LmStudioParameters.tsx
             MinimaxParameters.tsx
             OllamaParameters.tsx
@@ -354,6 +358,9 @@ src/
             OpenAiCompatibleParameters.tsx
             OpenAiModelOverrides.tsx
             OpenAiParameters.tsx
+            OpenCodeAdvancedSettings.tsx
+            OpenCodeModelOverrides.tsx
+            OpenCodeParameters.tsx
             OpenRouterAdvancedSettings.tsx
             OpenRouterModelOverrides.tsx
             OpenRouterParameters.tsx
@@ -365,6 +372,7 @@ src/
             VertexAiAdvancedSettings.tsx
             VertexAiModelOverrides.tsx
             VertexAIParameters.tsx
+            ZaiPlanAdvancedSettings.tsx
             ZaiPlanParameters.tsx
           DisableStreaming.tsx
           index.ts
@@ -514,11 +522,13 @@ src/
         GpustackIcon.tsx
         GroqIcon.tsx
         index.ts
+        LitellmIcon.tsx
         LmStudioIcon.tsx
         MinimaxIcon.tsx
         OllamaIcon.tsx
         OpenAiCompatibleIcon.tsx
         OpenAiIcon.tsx
+        OpenCodeIcon.tsx
         OpenRouterIcon.tsx
         requesty.png
         RequestyIcon.tsx
@@ -1179,6 +1189,7 @@ transformed_data = {}
 # skip models that are configured by other means
 ⋮----
 max_input_tokens = info.get("maxInputTokens")
+⋮----
 # skip models that don't have maxInputTokens defined
 ⋮----
 # Update the model_info_manager.local_model_metadata
@@ -1596,6 +1607,9 @@ File: src/common/locales/en.json
     "apiKey": "API Key",
     "modelPlaceholder": "e.g. anthropic/claude-3.7-sonnet"
   },
+  "opencode": {
+    "apiKey": "API Key"
+  },
   "requesty": {
     "apiKey": "API Key",
     "modelPlaceholder": "e.g. claude-4-sonnet",
@@ -1616,7 +1630,30 @@ File: src/common/locales/en.json
     "apiKey": "API Key"
   },
   "zaiPlan": {
-    "apiKey": "API Key"
+    "apiKey": "API Key",
+    "mcp": {
+      "title": "MCP Servers",
+      "infoTooltip": "Add Z.AI Coding Plan MCP servers to enable additional capabilities for the agent.",
+      "vision": {
+        "name": "Vision",
+        "description": "Image and video analysis using GLM-4.6V model"
+      },
+      "zread": {
+        "name": "Zread",
+        "description": "Search and read GitHub repository documentation and code"
+      },
+      "webReader": {
+        "name": "Web Reader",
+        "description": "Fetch and extract content from web pages"
+      },
+      "webSearch": {
+        "name": "Web Search",
+        "description": "Search the web for real-time information"
+      },
+      "add": "Add",
+      "adding": "Adding...",
+      "configured": "Configured"
+    }
   },
   "azure": {
     "apiKey": "API Key",
@@ -1633,9 +1670,11 @@ File: src/common/locales/en.json
     "groq": "Groq",
     "gpustack": "GPUStack",
     "lmstudio": "LM Studio",
+    "litellm": "LiteLLM",
     "minimax": "MiniMax",
     "ollama": "Ollama",
     "openai": "OpenAI",
+    "opencode": "OpenCode ZEN",
     "openai-compatible": "OpenAI Compatible",
     "openrouter": "OpenRouter",
     "requesty": "Requesty",
@@ -1729,7 +1768,14 @@ File: src/common/locales/en.json
       "autoGenerateTaskName": "Auto-Generate Task Name",
       "autoGenerateTaskNameTooltip": "When enabled, the model generates a concise task name from your prompt. When disabled, the first 5 words of your prompt will be used as the task name.",
       "showTaskStateActions": "Show Task State Actions",
-      "showTaskStateActionsTooltip": "When enabled, task state actions are displayed at the bottom of messages. Disable to hide these actions."
+      "showTaskStateActionsTooltip": "When enabled, task state actions are displayed at the bottom of messages. Disable to hide these actions.",
+      "worktree": "Worktree",
+      "worktreeSymlinkFoldersLabel": "Symlink Folders",
+      "worktreeSymlinkFoldersTooltip": "These folders will be symlinked from the project root to the task worktree. Useful for large dependencies like node_modules.",
+      "noSymlinkFolders": "No symlink folders configured",
+      "symlinkFolderPlaceholder": "Folder name (e.g. node_modules)",
+      "addSymlinkFolder": "Add",
+      "removeSymlinkFolder": "Remove folder"
     },
     "language": "Language",
     "notifications": {
@@ -2188,7 +2234,7 @@ File: src/common/locales/en.json
     "agent": "Agent",
     "aider": "Aider",
     "total": "Total",
-    "restartTask": "Restart task",
+    "resetTask": "Reset",
     "tokenUsage": "{{usedTokens}} of {{maxTokens}}",
     "contextCompactingThreshold": "Auto-compact threshold",
     "contextCompactingThresholdOff": "Off",
@@ -2598,7 +2644,8 @@ File: src/common/locales/en.json
     "deleteSelectedConfirm": "Are you sure you want to delete {{count}} selected tasks?",
     "archiveSelectedConfirm": "Are you sure you want to archive {{count}} selected tasks?",
     "unarchiveSelectedConfirm": "Are you sure you want to unarchive {{count}} selected tasks?",
-    "generatingName": "Generating name..."
+    "generatingName": "Generating name...",
+    "changeState": "Change State"
   },
   "taskInfo": {
     "createdAt": "Created at",
@@ -2678,7 +2725,6 @@ File: src/common/locales/en.json
       "aiCoding": "Generate and modify code with AI assistance",
       "contextManagement": "Add files to context for better results",
       "multiModel": "Choose from multiple AI models and providers",
-      "modes": "Switch between Agent and Aider modes",
       "commands": "Execute commands and run tests"
     },
     "tips": {
@@ -2686,7 +2732,18 @@ File: src/common/locales/en.json
       "addFiles": "Add files to context using the sidebar or /add command",
       "askQuestion": "Type your request in the prompt field below",
       "useCommands": "Use / commands for quick actions",
-      "switchMode": "Try Agent mode for autonomous task completion"
+      "switchMode": "Switch between modes using the mode selector below"
+    },
+    "modes": {
+      "title": "Choosing the Right Mode",
+      "agent": {
+        "title": "Agent Mode",
+        "description": "Use for autonomous tasks, complex workflows, and multi-step operations. The agent plans and executes tasks independently using available tools."
+      },
+      "code": {
+        "title": "Code Mode",
+        "description": "Use for direct code changes and specific tasks. Important: Add files to context to ensure the AI works on the right files."
+      }
     }
   }
 }
@@ -2974,7 +3031,30 @@ File: src/common/locales/zh.json
     "apiKey": "API 密钥"
   },
   "zaiPlan": {
-    "apiKey": "API 密钥"
+    "apiKey": "API 密钥",
+    "mcp": {
+      "title": "MCP 服务器",
+      "infoTooltip": "添加 Z.AI Coding Plan MCP 服务器以为智能体启用更多功能。",
+      "vision": {
+        "name": "视觉",
+        "description": "使用 GLM-4.6V 模型进行图像和视频分析"
+      },
+      "zread": {
+        "name": "Zread",
+        "description": "搜索和阅读 GitHub 仓库文档和代码"
+      },
+      "webReader": {
+        "name": "网页阅读器",
+        "description": "获取和提取网页内容"
+      },
+      "webSearch": {
+        "name": "网页搜索",
+        "description": "搜索网络获取实时信息"
+      },
+      "add": "添加",
+      "adding": "添加中...",
+      "configured": "已配置"
+    }
   },
   "anthropic": {
     "apiKey": "API 密钥"
@@ -3019,6 +3099,9 @@ File: src/common/locales/zh.json
     "apiKey": "API 密钥",
     "modelPlaceholder": "例如 anthropic/claude-3.7-sonnet"
   },
+  "opencode": {
+    "apiKey": "API 密钥"
+  },
   "requesty": {
     "apiKey": "API 密钥",
     "modelPlaceholder": "例如 claude-4-sonnet"
@@ -3038,9 +3121,11 @@ File: src/common/locales/zh.json
     "groq": "Groq",
     "gpustack": "GPUStack",
     "lmstudio": "LM Studio",
+    "litellm": "LiteLLM",
     "minimax": "Minimax",
     "ollama": "Ollama",
     "openai": "OpenAI",
+    "opencode": "OpenCode ZEN",
     "openai-compatible": "OpenAI Compatible",
     "openrouter": "OpenRouter",
     "requesty": "Requesty",
@@ -3136,7 +3221,14 @@ File: src/common/locales/zh.json
       "autoGenerateTaskName": "自动生成任务名称",
       "autoGenerateTaskNameTooltip": "启用后，模型会根据您的提示生成简洁的任务名称。禁用时，将使用提示的前5个词作为任务名称。",
       "showTaskStateActions": "显示任务状态操作",
-      "showTaskStateActionsTooltip": "启用后，任务状态操作将显示在消息底部。禁用以隐藏这些操作。"
+      "showTaskStateActionsTooltip": "启用后，任务状态操作将显示在消息底部。禁用以隐藏这些操作。",
+      "worktree": "工作树",
+      "worktreeSymlinkFoldersLabel": "符号链接文件夹",
+      "worktreeSymlinkFoldersTooltip": "这些文件夹将从项目根目录符号链接到任务工作树。适用于像 node_modules 这样的大型依赖。",
+      "noSymlinkFolders": "未配置符号链接文件夹",
+      "symlinkFolderPlaceholder": "文件夹名称（例如 node_modules）",
+      "addSymlinkFolder": "添加",
+      "removeSymlinkFolder": "移除文件夹"
     },
     "language": "语言",
     "notifications": {
@@ -3572,7 +3664,7 @@ File: src/common/locales/zh.json
     "agent": "代理",
     "aider": "Aider",
     "total": "全部的",
-    "restartTask": "重启任务",
+    "resetTask": "重置",
     "tokenUsage": "{{usedTokens}} / {{maxTokens}}",
     "contextCompactingThreshold": "自动压缩上下文阈值",
     "contextCompactingThresholdOff": "关闭",
@@ -4013,7 +4105,8 @@ File: src/common/locales/zh.json
     "deleteSelectedConfirm": "您确定要删除 {{count}} 个选中的任务吗？",
     "archiveSelectedConfirm": "您确定要归档 {{count}} 个选中的任务吗？",
     "unarchiveSelectedConfirm": "您确定要取消归档 {{count}} 个选中的任务吗？",
-    "generatingName": "正在生成名称..."
+    "generatingName": "正在生成名称...",
+    "changeState": "更改状态"
   },
   "taskInfo": {
     "createdAt": "创建于",
@@ -4093,7 +4186,6 @@ File: src/common/locales/zh.json
       "aiCoding": "使用 AI 辅助生成和修改代码",
       "contextManagement": "添加文件到上下文以获得更好的结果",
       "multiModel": "选择多种 AI 模型和提供商",
-      "modes": "在代理和 Aider 模式之间切换",
       "commands": "执行命令和运行测试"
     },
     "tips": {
@@ -4101,7 +4193,18 @@ File: src/common/locales/zh.json
       "addFiles": "使用侧边栏或 /add 命令添加文件到上下文",
       "askQuestion": "在下方的提示字段中输入您的请求",
       "useCommands": "使用 / 命令进行快速操作",
-      "switchMode": "尝试代理模式以实现自主任务完成"
+      "switchMode": "使用下方的模式选择器在模式之间切换"
+    },
+    "modes": {
+      "title": "选择正确的模式",
+      "agent": {
+        "title": "代理模式",
+        "description": "用于自主任务、复杂工作流程和多步骤操作。代理会使用可用工具独立规划和执行任务。"
+      },
+      "code": {
+        "title": "代码模式",
+        "description": "用于直接代码更改和特定任务。重要提示：将文件添加到上下文以确保 AI 处理正确的文件。"
+      }
     }
   }
 }
@@ -4153,11 +4256,13 @@ export type LlmProviderName =
   | 'gemini'
   | 'gpustack'
   | 'groq'
+  | 'litellm'
   | 'lmstudio'
   | 'minimax'
   | 'ollama'
   | 'openai'
   | 'openai-compatible'
+  | 'opencode'
   | 'openrouter'
   | 'requesty'
   | 'synthetic'
@@ -4287,6 +4392,13 @@ export interface OpenAiCompatibleProvider extends LlmProviderBase {
 }
 export const isOpenAiCompatibleProvider = (provider: LlmProviderBase): provider is OpenAiCompatibleProvider
 ⋮----
+export interface LitellmProvider extends LlmProviderBase {
+  name: 'litellm';
+  apiKey: string;
+  baseUrl: string;
+}
+export const isLitellmProvider = (provider: LlmProviderBase): provider is LitellmProvider
+⋮----
 export const isOllamaProvider = (provider: LlmProviderBase): provider is OllamaProvider
 ⋮----
 export interface GpustackProvider extends LlmProviderBase {
@@ -4322,6 +4434,12 @@ export interface RequestyProvider extends LlmProviderBase {
 }
 export const isRequestyProvider = (provider: LlmProviderBase): provider is RequestyProvider
 ⋮----
+export interface OpenCodeProvider extends LlmProviderBase {
+  name: 'opencode';
+  apiKey: string;
+}
+export const isOpenCodeProvider = (provider: LlmProviderBase): provider is OpenCodeProvider
+⋮----
 export interface ZaiPlanProvider extends LlmProviderBase {
   name: 'zai-plan';
   apiKey: string;
@@ -4353,7 +4471,9 @@ export type LlmProvider =
   | GpustackProvider
   | CerebrasProvider
   | OpenAiCompatibleProvider
+  | LitellmProvider
   | OllamaProvider
+  | OpenCodeProvider
   | OpenRouterProvider
   | RequestyProvider
   | SyntheticProvider
@@ -4455,7 +4575,7 @@ export interface ApplicationAPI {
   startProject: (baseDir: string) => Promise<void>;
   stopProject: (baseDir: string) => void;
   restartProject: (baseDir: string) => void;
-  restartTask: (baseDir: string, taskId: string) => void;
+  resetTask: (baseDir: string, taskId: string) => void;
   runPrompt: (baseDir: string, taskId: string, prompt: string, mode?: Mode) => void;
   savePrompt: (baseDir: string, taskId: string, prompt: string) => Promise<void>;
   redoLastUserPrompt: (baseDir: string, taskId: string, mode: Mode, updatedPrompt?: string) => void;
@@ -4648,6 +4768,7 @@ import {
   OllamaProvider,
   OpenAiCompatibleProvider,
   OpenAiProvider,
+  OpenCodeProvider,
   OpenRouterProvider,
   RequestyProvider,
   VertexAiProvider,
@@ -5097,6 +5218,7 @@ export interface TaskSettings {
   smartTaskState: boolean;
   autoGenerateTaskName: boolean;
   showTaskStateActions: boolean;
+  worktreeSymlinkFolders: string[];
 }
 ⋮----
 export interface MemoryConfig {
@@ -5159,6 +5281,7 @@ export interface SettingsData {
     lmstudio?: LmStudioProvider;
     minimax?: MinimaxProvider;
     'openai-compatible'?: OpenAiCompatibleProvider;
+    opencode?: OpenCodeProvider;
     openrouter?: OpenRouterProvider;
     requesty?: RequestyProvider;
     synthetic?: SyntheticProvider;
@@ -5695,6 +5818,7 @@ export const createMemoryToolset = (task: Task, profile: AgentProfile, memoryMan
 File: src/main/agent/tools/power.ts
 ================
 import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
 import { spawn } from 'child_process';
 ⋮----
@@ -5727,6 +5851,13 @@ import { Task } from '@/task';
 import logger from '@/logger';
 import { filterIgnoredFiles, scrapeWeb } from '@/utils';
 import { isAbortError, isFileNotFoundError } from '@/utils/errors';
+⋮----
+/**
+ * Expands a tilde (~) at the beginning of a path to the user's home directory.
+ * @param filePath - The file path to expand
+ * @returns The expanded path with ~ replaced by the home directory
+ */
+const expandTilde = (filePath: string): string =>
 ⋮----
 export const createPowerToolset = (task: Task, profile: AgentProfile, promptContext?: PromptContext, abortSignal?: AbortSignal): ToolSet =>
 ⋮----
@@ -6500,12 +6631,14 @@ export class McpManager
 async initMcpConnectors(
     mcpServers: Record<string, McpServerConfig>,
     projectDir: string | null = this.currentProjectDir,
+    taskDir: string | null = this.currentTaskDir,
     forceReload = false,
     enabledServers?: string[],
 ): Promise<McpConnector[]>
 ⋮----
 private async initMcpConnector(
     projectDir: string | null,
+    taskDir: string | null,
     serverName: string,
     config: McpServerConfig,
     forceReload = false,
@@ -6514,15 +6647,19 @@ private async initMcpConnector(
 ⋮----
 oldConnector = null; // Clear the old client reference
 ⋮----
-settingsChanged(_: SettingsData, newSettings: SettingsData)
+settingsChanged(oldSettings: SettingsData, newSettings: SettingsData)
 ⋮----
 async close(): Promise<void>
 ⋮----
-private interpolateServerConfig(serverConfig: McpServerConfig, projectDir: string | null): McpServerConfig
+private interpolateServerConfig(serverConfig: McpServerConfig, projectDir: string | null, taskDir: string | null): McpServerConfig
 ⋮----
 const interpolateValue = (value: string): string =>
 ⋮----
-private async createMcpConnector(serverName: string, config: McpServerConfig, projectDir: string | null): Promise<McpConnector>
+// Replace ${projectDir} with the project root directory
+⋮----
+// Replace ${taskDir} with the task directory (worktree dir or project root)
+⋮----
+private async createMcpConnector(serverName: string, config: McpServerConfig, projectDir: string | null, taskDir: string | null): Promise<McpConnector>
 ⋮----
 // Handle npx command on Windows
 ⋮----
@@ -7766,6 +7903,83 @@ export const createGroqLlm = (profile: ProviderProfile, model: Model, settings: 
 // Model discovery functions
 
 ================
+File: src/main/models/providers/litellm.ts
+================
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { isLitellmProvider, LitellmProvider } from '@common/agent';
+import { Model, ProviderProfile, SettingsData } from '@common/types';
+⋮----
+import type { LanguageModelV2 } from '@ai-sdk/provider';
+⋮----
+import logger from '@/logger';
+import { AiderModelMapping, LlmProviderStrategy, LoadModelsResponse } from '@/models';
+import { getEffectiveEnvironmentVariable } from '@/utils';
+import { getDefaultUsageReport } from '@/models/providers/default';
+⋮----
+interface LiteLLMModelInfo {
+  model_name: string;
+  id?: string;
+  max_tokens?: number;
+  max_input_tokens?: number;
+  max_output_tokens?: number;
+  context_window?: number;
+  input_cost_per_token?: number;
+  output_cost_per_token?: number;
+  litellm_params?: {
+    max_tokens?: number;
+    max_input_tokens?: number;
+    max_output_tokens?: number;
+    context_window?: number;
+    input_cost_per_token?: number;
+    output_cost_per_token?: number;
+  };
+  model_info?: {
+    max_tokens?: number;
+    max_input_tokens?: number;
+    max_output_tokens?: number;
+    context_window?: number;
+    input_cost_per_token?: number;
+    output_cost_per_token?: number;
+  };
+}
+⋮----
+export const loadLitellmModels = async (profile: ProviderProfile, settings: SettingsData): Promise<LoadModelsResponse> =>
+⋮----
+// Fetch /model/info for detailed pricing and config
+// This is required for LiteLLM provider
+⋮----
+// Sometimes it might return a map directly
+⋮----
+// Group by model_name to handle load balancing
+⋮----
+// Helper to find value in multiple places for a single info object
+const getValue = (
+        info: LiteLLMModelInfo,
+        key: 'context_window' | 'max_input_tokens' | 'max_output_tokens' | 'max_tokens' | 'input_cost_per_token' | 'output_cost_per_token',
+) =>
+⋮----
+// Aggregate values across all backends for this model name
+// For limits (context window, max output), use MIN to be safe
+// For costs, use MAX to be safe/conservative
+⋮----
+export const hasLitellmEnvVars = (settings: SettingsData): boolean =>
+⋮----
+export const getLitellmAiderMapping = (provider: ProviderProfile, modelId: string): AiderModelMapping =>
+⋮----
+// Ensure no trailing slash to avoid double slashes if Aider appends paths
+⋮----
+// === LLM Creation Functions ===
+export const createLitellmLlm = (profile: ProviderProfile, model: Model, settings: SettingsData, projectDir: string): LanguageModelV2 =>
+⋮----
+apiKey = 'sk-dummy'; // Dummy key for OpenAI-compatible client which expects a key.
+⋮----
+// === Complete Strategy Implementation ===
+⋮----
+// Core LLM functions
+⋮----
+// Model discovery functions
+
+================
 File: src/main/models/providers/lm-studio.ts
 ================
 import { Model, ProviderProfile, SettingsData, UsageReportData } from '@common/types';
@@ -8034,6 +8248,58 @@ const createOpenAIVoiceSession = async (profile: ProviderProfile, settings: Sett
 // Configuration helper functions
 ⋮----
 // Voice support
+
+================
+File: src/main/models/providers/opencode.ts
+================
+import { Model, ProviderProfile, SettingsData } from '@common/types';
+import { DEFAULT_MODEL_TEMPERATURE, isOpenCodeProvider, OpenCodeProvider } from '@common/agent';
+import { createOpenAI } from '@ai-sdk/openai';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+⋮----
+import { getDefaultModelInfo, getDefaultUsageReport } from './default';
+⋮----
+import type { LanguageModelV2 } from '@ai-sdk/provider';
+⋮----
+import { AiderModelMapping, LlmProviderStrategy, LoadModelsResponse } from '@/models';
+import { getEffectiveEnvironmentVariable } from '@/utils';
+⋮----
+interface OpenCodeModel {
+  id: string;
+  object: string;
+  created: number;
+  owned_by: string;
+}
+⋮----
+interface OpenCodeModelsResponse {
+  object: string;
+  data: OpenCodeModel[];
+}
+⋮----
+type ModelEndpointType = 'openai' | 'anthropic' | 'gemini' | 'openai-compatible';
+⋮----
+const getModelEndpointType = (modelId: string): ModelEndpointType =>
+⋮----
+const getDefaultModelTemperature = (modelId: string) =>
+⋮----
+const loadOpencodeModels = async (profile: ProviderProfile, settings: SettingsData): Promise<LoadModelsResponse> =>
+⋮----
+export const hasOpencodeEnvVars = (settings: SettingsData): boolean =>
+⋮----
+export const getOpencodeAiderMapping = (provider: ProviderProfile, modelId: string, settings: SettingsData, projectDir: string): AiderModelMapping =>
+⋮----
+// Use openai prefix for OpenCode providers
+⋮----
+// === LLM Creation Functions ===
+export const createOpencodeLlm = (profile: ProviderProfile, model: Model, settings: SettingsData, projectDir: string): LanguageModelV2 =>
+⋮----
+// === Complete Strategy Implementation ===
+⋮----
+// Core LLM functions
+⋮----
+// Model discovery functions
 
 ================
 File: src/main/models/providers/openrouter.ts
@@ -8393,11 +8659,13 @@ import { deepseekProviderStrategy } from './providers/deepseek';
 import { geminiProviderStrategy } from './providers/gemini';
 import { gpustackProviderStrategy } from './providers/gpustack';
 import { groqProviderStrategy } from './providers/groq';
+import { litellmProviderStrategy } from './providers/litellm';
 import { lmStudioProviderStrategy } from './providers/lm-studio';
 import { minimaxProviderStrategy } from './providers/minimax';
 import { ollamaProviderStrategy } from './providers/ollama';
 import { openaiProviderStrategy } from './providers/openai';
 import { openaiCompatibleProviderStrategy } from './providers/openai-compatible';
+import { opencodeProviderStrategy } from './providers/opencode';
 import { openrouterProviderStrategy } from './providers/openrouter';
 import { requestyProviderStrategy } from './providers/requesty';
 import { syntheticProviderStrategy } from './providers/synthetic';
@@ -8560,32 +8828,12 @@ async createVoiceSession(provider: ProviderProfile): Promise<VoiceSession>
 File: src/main/models/types.ts
 ================
 import { AgentProfile, Model, ModelInfo, ProviderProfile, SettingsData, UsageReportData, VoiceSession } from '@common/types';
-import { LlmProvider } from '@common/agent';
+import { LlmProvider, LlmProviderName } from '@common/agent';
 ⋮----
 import type { LanguageModelV2, SharedV2ProviderOptions } from '@ai-sdk/provider';
 import type { LanguageModelUsage, ToolSet } from 'ai';
 ⋮----
 import { Task } from '@/task';
-⋮----
-export type LlmProviderName =
-  | 'anthropic'
-  | 'azure'
-  | 'bedrock'
-  | 'cerebras'
-  | 'deepseek'
-  | 'gemini'
-  | 'gpustack'
-  | 'groq'
-  | 'lmstudio'
-  | 'minimax'
-  | 'ollama'
-  | 'openai'
-  | 'openai-compatible'
-  | 'openrouter'
-  | 'requesty'
-  | 'synthetic'
-  | 'vertex-ai'
-  | 'zai-plan';
 ⋮----
 export interface CacheControl {
   providerOptions: SharedV2ProviderOptions;
@@ -9391,7 +9639,7 @@ registerRoutes(router: Router): void
 ⋮----
 // Duplicate task
 ⋮----
-// Restart task
+// Reset task
 ⋮----
 // Load task data
 ⋮----
@@ -9649,17 +9897,39 @@ File: src/main/server/index.ts
 ================
 File: src/main/server/runner.ts
 ================
+import { normalizeBaseDir } from '@common/utils';
+import { ProjectData } from '@common/types';
+⋮----
 import logger from '@/logger';
 import { initManagers } from '@/managers';
 import { performStartUp } from '@/start-up';
 import { Store } from '@/store';
 import { AIDER_DESK_DATA_DIR } from '@/constants';
+import { getDefaultProjectSettings } from '@/utils';
+import { ModelManager } from '@/models';
+import { AgentProfileManager } from '@/agent';
+⋮----
+export const addProjectsFromEnv = async (store: Store, modelManager: ModelManager, agentProfileManager: AgentProfileManager): Promise<void> =>
+⋮----
+// Create all projects from the env var
+⋮----
+// Override open projects with the ones from env var
+⋮----
+// Preserve active state from existing projects if they match
+⋮----
+// Set the first project as active if none are active
 ⋮----
 const main = async (): Promise<void> =>
 ⋮----
 // Force headless mode for node-runner
 ⋮----
 const updateProgress = (
+⋮----
+// Initialize managers first
+⋮----
+// Check for AIDER_DESK_PROJECTS environment variable and add projects
+⋮----
+// Only run main if this file is being executed directly (not imported for testing)
 
 ================
 File: src/main/server/server-controller.ts
@@ -10295,6 +10565,8 @@ private async migrateContext(contextData: unknown): Promise<TaskContext>
 ⋮----
 async load(): Promise<void>
 ⋮----
+private async loadInternal(): Promise<void>
+⋮----
 async loadMessages(messages: ContextMessage[]): Promise<void>
 ⋮----
 // Clear all current messages
@@ -10497,6 +10769,8 @@ public async saveTask(updates?: Partial<TaskData>, updateTimestamps = true): Pro
 // Internal task is not saved
 ⋮----
 public async init()
+⋮----
+private async initInternal()
 ⋮----
 // Check if worktree is enabled for this task
 ⋮----
@@ -10913,7 +11187,7 @@ public async runCustomCommand(commandName: string, args: string[], mode: Mode = 
 ⋮----
 // Clear loading message after execution completes (success or failure)
 ⋮----
-async restart()
+async reset()
 ⋮----
 public async updateTask(updates: Partial<TaskData>): Promise<TaskData>
 ⋮----
@@ -11768,7 +12042,8 @@ File: src/main/worktrees/index.ts
 File: src/main/worktrees/worktree-manager.ts
 ================
 import path, { join } from 'path';
-import fs, { mkdir, rm } from 'fs/promises';
+import fs, { mkdir, rm, lstat, symlink } from 'fs/promises';
+import { existsSync } from 'fs';
 ⋮----
 import { ConflictResolutionFileContext, MergeState, RebaseState, Worktree, WorktreeAheadCommits, WorktreeUncommittedFiles } from '@common/types';
 ⋮----
@@ -11844,6 +12119,12 @@ actualBaseBranch = branch; // Use the newly created branch name
 // Capture the base commit (the commit it's detached at)
 ⋮----
 // Use the baseRef for the branch name, or resolve the current branch if baseRef is 'HEAD'
+⋮----
+async createSymlinks(projectPath: string, worktreePath: string, folderNames: string[]): Promise<void>
+⋮----
+private async existsAndIsDirectory(path: string): Promise<boolean>
+⋮----
+private async isFolderTrackedByGit(projectPath: string, folderName: string): Promise<boolean>
 ⋮----
 async removeWorktree(projectDir: string, worktree: Worktree): Promise<void>
 ⋮----
@@ -12295,7 +12576,7 @@ async restartProject(baseDir: string): Promise<void>
 ⋮----
 async createVoiceSession(providerProfile: ProviderProfile): Promise<VoiceSession>
 ⋮----
-async restartTask(baseDir: string, taskId: string): Promise<void>
+async resetTask(baseDir: string, taskId: string): Promise<void>
 ⋮----
 getOpenProjects(): ProjectData[]
 ⋮----
@@ -12368,6 +12649,8 @@ async loadMcpServerTools(serverName: string, config?: McpServerConfig): Promise<
 async reloadMcpServers(mcpServers: Record<string, McpServerConfig>, force = false): Promise<void>
 ⋮----
 // Get the currently active project's base directory
+⋮----
+// taskDir defaults to projectDir when there's no task context
 ⋮----
 async createTerminal(baseDir: string, taskId: string, cols?: number, rows?: number): Promise<string>
 ⋮----
@@ -12611,7 +12894,7 @@ import DailyRotateFile from 'winston-daily-rotate-file';
 ⋮----
 import { LOGS_DIR } from '@/constants';
 ⋮----
-// If we're not in production, also log to the console
+// If we're not in production OR running in headless mode (Docker), also log to the console
 
 ================
 File: src/main/managers.ts
@@ -12643,6 +12926,8 @@ export interface ManagersResult {
   eventsHandler: EventsHandler;
   serverController: ServerController;
   cleanup: () => Promise<void>;
+  modelManager: ModelManager;
+  agentProfileManager: AgentProfileManager;
 }
 ⋮----
 export const initManagers = async (store: Store, mainWindow: BrowserWindow | null = null): Promise<ManagersResult> =>
@@ -13278,7 +13563,7 @@ startProject(baseDir: string): Promise<void>
 stopProject(baseDir: string): void
 ⋮----
 restartProject(baseDir: string): void
-restartTask(baseDir: string, taskId: string): void
+resetTask(baseDir: string, taskId: string): void
 runPrompt(baseDir: string, taskId: string, prompt: string, mode?: Mode): void
 savePrompt(baseDir: string, taskId: string, prompt: string): Promise<void>
 redoLastUserPrompt(baseDir: string, taskId: string, mode: Mode, updatedPrompt?: string): void
@@ -13922,6 +14207,24 @@ onChange(!checked);
 className="sr-only" // Hide the actual input but keep it accessible
 
 ================
+File: src/renderer/src/components/common/Chip.tsx
+================
+import { IoClose } from 'react-icons/io5';
+import { twMerge } from 'tailwind-merge';
+⋮----
+import { IconButton } from '@/components/common/IconButton';
+import { StyledTooltip } from '@/components/common/StyledTooltip';
+⋮----
+type Props = {
+  label: string;
+  onRemove?: () => void;
+  removeTooltip?: string;
+  className?: string;
+};
+⋮----
+className=
+
+================
 File: src/renderer/src/components/common/CodeBlock.tsx
 ================
 import { startTransition, useMemo, useOptimistic, useState } from 'react';
@@ -14089,16 +14392,18 @@ className=
 ================
 File: src/renderer/src/components/common/FileChip.tsx
 ================
-import { IoClose } from 'react-icons/io5';
 import { useTranslation } from 'react-i18next';
 ⋮----
-import { IconButton } from '@/components/common/IconButton';
-import { StyledTooltip } from '@/components/common/StyledTooltip';
+import { Chip } from '@/components/common/Chip';
 ⋮----
 type Props = {
   path: string;
   onRemove: (path: string) => void;
 };
+⋮----
+export const FileChip = (
+⋮----
+return <Chip key=
 
 ================
 File: src/renderer/src/components/common/HtmlInfoDialog.tsx
@@ -14462,12 +14767,16 @@ import { useTranslation } from 'react-i18next';
 import { twMerge } from 'tailwind-merge';
 import { DefaultTaskState } from '@common/types';
 ⋮----
+import type { TFunction } from 'i18next';
+⋮----
 type Props = {
   state: string;
   className?: string;
 };
 ⋮----
 const getStateTextClass = (state: string): string =>
+⋮----
+export const getTaskStateLabel = (t: TFunction, state: string) =>
 ⋮----
 export const TaskStateChip = (
 ⋮----
@@ -15689,6 +15998,7 @@ import { CodeInline } from '@/components/common/CodeInline';
 import { CopyMessageButton } from '@/components/message/CopyMessageButton';
 import { IconButton } from '@/components/common/IconButton';
 import { useApi } from '@/contexts/ApiContext';
+import { getTaskStateLabel } from '@/components/common/TaskStateChip';
 ⋮----
 type Props = {
   message: TaskInfoMessageType;
@@ -16429,6 +16739,27 @@ File: src/renderer/src/components/ModelLibrary/providers/index.ts
 // Model Overrides
 
 ================
+File: src/renderer/src/components/ModelLibrary/providers/LitellmParameters.tsx
+================
+import { ChangeEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import { LitellmProvider } from '@common/agent';
+⋮----
+import { Input } from '@/components/common/Input';
+import { useEffectiveEnvironmentVariable } from '@/hooks/useEffectiveEnvironmentVariable';
+⋮----
+type Props = {
+  provider: LitellmProvider;
+  onChange: (updated: LitellmProvider) => void;
+};
+⋮----
+const handleBaseUrlChange = (e: ChangeEvent<HTMLInputElement>) =>
+⋮----
+const handleApiKeyChange = (e: ChangeEvent<HTMLInputElement>) =>
+⋮----
+label=
+
+================
 File: src/renderer/src/components/ModelLibrary/providers/LmStudioParameters.tsx
 ================
 import { ChangeEvent } from 'react';
@@ -16624,6 +16955,54 @@ type Props = {
 const handleApiKeyChange = (e: ChangeEvent<HTMLInputElement>) =>
 ⋮----
 const handleVoiceEnabledChange = (checked: boolean) =>
+⋮----
+label=
+
+================
+File: src/renderer/src/components/ModelLibrary/providers/OpenCodeAdvancedSettings.tsx
+================
+export const OpenCodeAdvancedSettings = () =>
+
+================
+File: src/renderer/src/components/ModelLibrary/providers/OpenCodeModelOverrides.tsx
+================
+import { getDefaultProviderParams, LlmProvider } from '@common/agent';
+⋮----
+import { DisableStreaming } from '../DisableStreaming';
+⋮----
+type Props = {
+  provider: LlmProvider;
+  overrides: Record<string, unknown>;
+  onChange: (overrides: Record<string, unknown>) => void;
+};
+⋮----
+export const OpenCodeModelOverrides = (
+⋮----
+// Convert overrides to LlmProvider format
+⋮----
+// Convert back to overrides format
+const handleDisableStreamingChange = (disableStreaming: boolean) =>
+⋮----
+// Remove undefined values
+
+================
+File: src/renderer/src/components/ModelLibrary/providers/OpenCodeParameters.tsx
+================
+import { ChangeEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import { OpenCodeProvider } from '@common/agent';
+⋮----
+import { Input } from '@/components/common/Input';
+import { useEffectiveEnvironmentVariable } from '@/hooks/useEffectiveEnvironmentVariable';
+⋮----
+type Props = {
+  provider: OpenCodeProvider;
+  onChange: (updated: OpenCodeProvider) => void;
+};
+⋮----
+export const OpenCodeParameters = (
+⋮----
+const handleApiKeyChange = (e: ChangeEvent<HTMLInputElement>) =>
 ⋮----
 label=
 
@@ -16931,11 +17310,48 @@ const handleCredentialsChange = (e: ChangeEvent<HTMLTextAreaElement>) =>
 label=
 
 ================
+File: src/renderer/src/components/ModelLibrary/providers/ZaiPlanAdvancedSettings.tsx
+================
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ZaiPlanProvider } from '@common/agent';
+import { SettingsData, McpServerConfig } from '@common/types';
+import { FaCheck, FaPlus, FaInfoCircle, FaExternalLinkAlt } from 'react-icons/fa';
+⋮----
+import { useSettings } from '@/contexts/SettingsContext';
+import { Button } from '@/components/common/Button';
+import { StyledTooltip } from '@/components/common/StyledTooltip';
+⋮----
+type Props = {
+  provider: ZaiPlanProvider;
+  onChange: (updated: ZaiPlanProvider) => void;
+};
+⋮----
+type McpServerInfo = {
+  key: string;
+  name: string;
+  description: string;
+  config: McpServerConfig;
+  documentationLink: string;
+};
+⋮----
+const isServerConfigured = (serverKey: string): boolean =>
+⋮----
+const handleAddServer = async (serverInfo: McpServerInfo) =>
+⋮----
+// eslint-disable-next-line no-console
+⋮----
+<Button onClick=
+⋮----
+
+================
 File: src/renderer/src/components/ModelLibrary/providers/ZaiPlanParameters.tsx
 ================
 import { ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ZaiPlanProvider } from '@common/agent';
+⋮----
+import { ZaiPlanAdvancedSettings } from './ZaiPlanAdvancedSettings';
 ⋮----
 import { Input } from '@/components/common/Input';
 import { useEffectiveEnvironmentVariable } from '@/hooks/useEffectiveEnvironmentVariable';
@@ -16944,8 +17360,6 @@ type Props = {
   provider: ZaiPlanProvider;
   onChange: (updated: ZaiPlanProvider) => void;
 };
-⋮----
-export const ZaiPlanParameters = (
 ⋮----
 const handleApiKeyChange = (e: ChangeEvent<HTMLInputElement>) =>
 ⋮----
@@ -17097,6 +17511,7 @@ import { OpenRouterModelOverrides } from './providers/OpenRouterModelOverrides';
 import { GeminiModelOverrides } from './providers/GeminiModelOverrides';
 import { VertexAiModelOverrides } from './providers/VertexAiModelOverrides';
 import { OpenAiModelOverrides } from './providers/OpenAiModelOverrides';
+import { OpenCodeModelOverrides } from './providers/OpenCodeModelOverrides';
 import { RequestyModelOverrides } from './providers/RequestyModelOverrides';
 import { AzureModelOverrides } from './providers/AzureModelOverrides';
 import { OpenAiCompatibleModelOverrides } from './providers/OpenAiCompatibleModelOverrides';
@@ -17246,11 +17661,13 @@ import {
   GeminiIcon,
   GpustackIcon,
   GroqIcon,
+  LitellmIcon,
   LmStudioIcon,
   MinimaxIcon,
   OllamaIcon,
   OpenAiCompatibleIcon,
   OpenAiIcon,
+  OpenCodeIcon,
   OpenRouterIcon,
   RequestyIcon,
   SyntheticIcon,
@@ -17358,11 +17775,13 @@ import {
   GeminiParameters,
   GpustackParameters,
   GroqParameters,
+  LitellmParameters,
   LmStudioParameters,
   MinimaxParameters,
   OllamaParameters,
   OpenAiCompatibleParameters,
   OpenAiParameters,
+  OpenCodeParameters,
   OpenRouterParameters,
   RequestyParameters,
   SyntheticParameters,
@@ -17441,11 +17860,13 @@ import {
   GeminiIcon,
   GpustackIcon,
   GroqIcon,
+  LitellmIcon,
   LmStudioIcon,
   MinimaxIcon,
   OllamaIcon,
   OpenAiCompatibleIcon,
   OpenAiIcon,
+  OpenCodeIcon,
   OpenRouterIcon,
   RequestyIcon,
   SyntheticIcon,
@@ -17633,7 +18054,7 @@ type Props = {
   maxInputTokens: number;
   clearMessages: (clearContext?: boolean) => void;
   runCommand: (command: string) => void;
-  restartTask: () => void;
+  resetTask: () => void;
   mode: Mode;
   showFileDialog: () => void;
   task: TaskData;
@@ -17651,7 +18072,7 @@ export const FilesContextInfoContent = ({
   maxInputTokens,
   clearMessages,
   runCommand,
-  restartTask,
+  resetTask,
   mode,
   showFileDialog,
   task,
@@ -17686,7 +18107,7 @@ type Props = {
   maxInputTokens: number;
   clearMessages: (clearContext?: boolean) => void;
   runCommand: (command: string) => void;
-  restartTask: () => void;
+  resetTask: () => void;
   mode: Mode;
   setAddFileDialogOptions: React.Dispatch<React.SetStateAction<AddFileDialogOptions | null>>;
   task: TaskData;
@@ -17706,7 +18127,7 @@ export const MobileSidebar = ({
   maxInputTokens,
   clearMessages,
   runCommand,
-  restartTask,
+  resetTask,
   mode,
   setAddFileDialogOptions,
   task,
@@ -17993,12 +18414,14 @@ File: src/renderer/src/components/project/TaskSidebar.tsx
 import { DefaultTaskState, TaskData } from '@common/types';
 import { useTranslation } from 'react-i18next';
 import { KeyboardEvent, MouseEvent, useState, memo, useRef, useEffect, useOptimistic, startTransition } from 'react';
+import { createPortal } from 'react-dom';
 import { HiOutlinePencil, HiOutlineTrash, HiPlus, HiCheck, HiSparkles } from 'react-icons/hi';
-import { RiMenuUnfold4Line } from 'react-icons/ri';
+import { RiMenuUnfold4Line, RiFlag2Line } from 'react-icons/ri';
 import { FaEllipsisVertical } from 'react-icons/fa6';
 import { IoLogoMarkdown } from 'react-icons/io';
+import { IoGitBranch } from 'react-icons/io5';
 import { CgSpinner } from 'react-icons/cg';
-import { MdImage, MdOutlineSearch, MdPushPin } from 'react-icons/md';
+import { MdImage, MdOutlineSearch, MdPushPin, MdChevronRight } from 'react-icons/md';
 import { clsx } from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BiDuplicate, BiArchive, BiArchiveIn } from 'react-icons/bi';
@@ -18014,9 +18437,10 @@ import { IconButton } from '@/components/common/IconButton';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { LoadingText } from '@/components/common/LoadingText';
-import { TaskStateChip } from '@/components/common/TaskStateChip';
+import { getTaskStateLabel, TaskStateChip } from '@/components/common/TaskStateChip';
 ⋮----
 type TaskMenuButtonProps = {
+  task: TaskData;
   onEdit: () => void;
   onDelete?: () => void;
   onExportToMarkdown?: () => void;
@@ -18025,6 +18449,7 @@ type TaskMenuButtonProps = {
   onArchiveTask?: () => void;
   onUnarchiveTask?: () => void;
   onTogglePin?: () => void;
+  onChangeState?: (newState: string) => void;
   isPinned?: boolean;
 };
 ⋮----
@@ -18046,6 +18471,10 @@ const handleUnarchiveTaskClick = (e: MouseEvent) =>
 ⋮----
 const handlePinClick = (e: MouseEvent) =>
 ⋮----
+const handleStateSubmenuToggle = () =>
+⋮----
+const handleStateChange = (e: MouseEvent, state: string) =>
+⋮----
 <div className=
 ⋮----
 data-tooltip-content=
@@ -18056,9 +18485,11 @@ className={clsx(
           )}
 onClick=
 ⋮----
+e.stopPropagation();
+handleStateSubmenuToggle();
+⋮----
 // Multiselect Menu Component
 ⋮----
-e.stopPropagation();
 onDelete();
 ⋮----
 onArchive();
@@ -18109,6 +18540,10 @@ const handleTogglePin = async (taskId: string) =>
 ⋮----
 // eslint-disable-next-line no-console
 ⋮----
+const handleChangeState = async (taskId: string, newState: string) =>
+⋮----
+// eslint-disable-next-line no-console
+⋮----
 // Multiselect handlers
 const handleTaskCtrlClick = (e: MouseEvent, taskId: string) =>
 ⋮----
@@ -18128,9 +18563,9 @@ return <span className=
 ⋮----
 label=
 ⋮----
-onEdit=
-⋮----
 onTogglePin=
+⋮----
+onChangeState=
 ⋮----
 <h3 className="text-sm font-semibold uppercase h-5">
 ⋮----
@@ -18256,7 +18691,7 @@ setEditingMessageIndex(null); // Clear editing state
 ⋮----
 // eslint-disable-next-line no-console
 ⋮----
-const handleRestartTask = () =>
+const handleResetTask = () =>
 ⋮----
 const handleRedoLastUserPrompt = () =>
 ⋮----
@@ -18292,6 +18727,10 @@ const handleCopyTerminalOutput = (output: string) =>
 ⋮----
 const handleAutoApproveChanged = (autoApprove: boolean) =>
 ⋮----
+const handleAnswerQuestion = (answer: string) =>
+⋮----
+const handleInterruptResponse = () =>
+⋮----
 return <LoadingOverlay message=
 ⋮----
 <div className=
@@ -18302,8 +18741,6 @@ onToggleSidebar=
 ⋮----
 if (node?.container)
 setSearchContainer(node.container);
-⋮----
-answerQuestion=
 ⋮----
 {/* Expand/Collapse Button */}
 ⋮----
@@ -18420,11 +18857,21 @@ const setWidth = (newWidth: number) =>
 ================
 File: src/renderer/src/components/project/WelcomeMessage.tsx
 ================
+import { RiRobot2Line } from 'react-icons/ri';
 import { useTranslation } from 'react-i18next';
-import { FiCode, FiFile, FiLayers, FiZap, FiTerminal } from 'react-icons/fi';
+import { FiCode, FiFile, FiLayers, FiTerminal } from 'react-icons/fi';
+import { CgTerminal } from 'react-icons/cg';
 ⋮----
 // @ts-expect-error TypeScript is not aware of asset import
 import icon from '../../../../../resources/icon.png?asset';
+⋮----
+import type { Mode } from '@common/types';
+⋮----
+type Props = {
+  onModeChange?: (mode: Mode) => void;
+};
+⋮----
+const handleModeClick = (mode: Mode) =>
 
 ================
 File: src/renderer/src/components/project/WorktreeActionDialog.tsx
@@ -19799,11 +20246,14 @@ const handleZoomChange = (zoomLevel: number) =>
 File: src/renderer/src/components/settings/TaskSettings.tsx
 ================
 import { SettingsData } from '@common/types';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 ⋮----
+import { Chip } from '../common/Chip';
 import { Checkbox } from '../common/Checkbox';
 import { Section } from '../common/Section';
 import { InfoIcon } from '../common/InfoIcon';
+import { Button } from '../common/Button';
 ⋮----
 type Props = {
   settings: SettingsData;
@@ -19816,7 +20266,13 @@ const handleAutoGenerateTaskNameChange = (checked: boolean) =>
 ⋮----
 const handleShowTaskStateActionsChange = (checked: boolean) =>
 ⋮----
+const handleAddSymlinkFolder = () =>
+⋮----
+const handleRemoveSymlinkFolder = (folder: string) =>
+⋮----
 <Section title=
+⋮----
+onChange=
 
 ================
 File: src/renderer/src/components/settings/VoiceSettings.tsx
@@ -20322,7 +20778,7 @@ import { Mode, TokensInfoData, TaskData } from '@common/types';
 import { ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IoChevronDown, IoChevronUp, IoClose } from 'react-icons/io5';
-import { MdOutlineRefresh } from 'react-icons/md';
+import { MdOutlineRefresh, MdSettingsBackupRestore } from 'react-icons/md';
 ⋮----
 import { StyledTooltip } from '@/components/common/StyledTooltip';
 import { TokenUsageBar } from '@/components/TokenUsageBar';
@@ -20332,7 +20788,7 @@ type Props = {
   aiderTotalCost: number;
   clearMessages?: () => void;
   refreshRepoMap?: () => void;
-  restartTask?: () => void;
+  resetTask?: () => void;
   maxInputTokens?: number;
   mode: Mode;
   task: TaskData;
@@ -20676,9 +21132,9 @@ export interface TaskState {
 }
 ⋮----
 interface TaskEventSubscriberProps {
-  taskId: string;
   baseDir: string;
-  task: TaskData;
+  taskId: string;
+  state?: string;
   updateTaskState: (taskId: string, updates: Partial<TaskState>) => void;
   clearSession: (taskId: string, messagesOnly: boolean) => void;
   setQuestion: (taskId: string, question: QuestionData | null) => void;
@@ -20687,9 +21143,9 @@ interface TaskEventSubscriberProps {
 }
 ⋮----
 const TaskEventSubscriber: React.FC<TaskEventSubscriberProps> = ({
-  taskId,
   baseDir,
-  task,
+  taskId,
+  state,
   updateTaskState,
   clearSession,
   setQuestion,
@@ -20758,7 +21214,7 @@ const handleUpdateAiderModels = (data: ModelsData) =>
 export interface TaskContextType {
   getTaskState: (taskId: string, loadIfNotLoaded?: boolean) => TaskState | null;
   clearSession: (taskId: string, messagesOnly: boolean) => void;
-  restartTask: (taskId: string) => void;
+  resetTask: (taskId: string) => void;
   setMessages: (taskId: string, updateMessages: (prevState: Message[]) => Message[]) => void;
   setTodoItems: (taskId: string, updateTodoItems: (prev: TodoItem[]) => TodoItem[]) => void;
   setAiderModelsData: (taskId: string, modelsData: ModelsData | null) => void;
@@ -21372,6 +21828,31 @@ File: src/renderer/src/icons/index.ts
 
 
 ================
+File: src/renderer/src/icons/LitellmIcon.tsx
+================
+type Props = {
+  width?: number;
+  height?: number;
+  className?: string;
+};
+⋮----
+export const LitellmIcon = ({ width = 64, height = 64, className }: Props) => (
+  <div
+    aria-label="LiteLLM"
+    className={`flex items-center justify-center rounded-md ${className || ''}`}
+    style={{
+      backgroundColor: '#181638',
+      boxShadow: 'rgba(0, 0, 0, 0.1) 0px 0px 0px 1px inset',
+      color: 'rgb(0, 0, 0)',
+      height: `${height}px`,
+      width: `${width}px`,
+    }}
+  >
+    <div style={{ fontSize: `${width * 0.6}px` }}>🚅</div>
+  </div>
+);
+
+================
 File: src/renderer/src/icons/LmStudioIcon.tsx
 ================
 type Props = {
@@ -21497,6 +21978,33 @@ export const OpenAiIcon = ({ width = 64, height = 64, className }: Props) => (
     <svg fill="currentColor" fillRule="evenodd" viewBox="0 0 24 24" width={width * 0.75} height={height * 0.75} xmlns="http://www.w3.org/2000/svg">
       <title>OpenAI</title>
       <path d="M21.55 10.004a5.416 5.416 0 00-.478-4.501c-1.217-2.09-3.662-3.166-6.05-2.66A5.59 5.59 0 0010.831 1C8.39.995 6.224 2.546 5.473 4.838A5.553 5.553 0 001.76 7.496a5.487 5.487 0 00.691 6.5 5.416 5.416 0 00.477 4.502c1.217 2.09 3.662 3.165 6.05 2.66A5.586 5.586 0 0013.168 23c2.443.006 4.61-1.546 5.361-3.84a5.553 5.553 0 003.715-2.66 5.488 5.488 0 00-.693-6.497v.001zm-8.381 11.558a4.199 4.199 0 01-2.675-.954c.034-.018.093-.05.132-.074l4.44-2.53a.71.71 0 00.364-.623v-6.176l1.877 1.069c.02.01.033.029.036.05v5.115c-.003 2.274-1.87 4.118-4.174 4.123zM4.192 17.78a4.059 4.059 0 01-.498-2.763c.032.02.09.055.131.078l4.44 2.53c.225.13.504.13.73 0l5.42-3.088v2.138a.068.068 0 01-.027.057L9.9 19.288c-1.999 1.136-4.552.46-5.707-1.51h-.001zM3.023 8.216A4.15 4.15 0 015.198 6.41l-.002.151v5.06a.711.711 0 00.364.624l5.42 3.087-1.876 1.07a.067.067 0 01-.063.005l-4.489-2.559c-1.995-1.14-2.679-3.658-1.53-5.63h.001zm15.417 3.54l-5.42-3.088L14.896 7.6a.067.067 0 01.063-.006l4.489 2.557c1.998 1.14 2.683 3.662 1.529 5.633a4.163 4.163 0 01-2.174 1.807V12.38a.71.71 0 00-.363-.623zm1.867-2.773a6.04 6.04 0 00-.132-.078l-4.44-2.53a.731.731 0 00-.729 0l-5.42 3.088V7.325a.068.068 0 01.027-.057L14.1 4.713c2-1.137 4.555-.46 5.707 1.513.487.833.664 1.809.499 2.757h.001zm-11.741 3.81l-1.877-1.068a.065.065 0 01-.036-.051V6.559c.001-2.277 1.873-4.122 4.181-4.12.976 0 1.92.338 2.671.954-.034.018-.092.05-.131.073l-4.44 2.53a.71.71 0 00-.365.623l-.003 6.173v.002zm1.02-2.168L12 9.25l2.414 1.375v2.75L12 14.75l-2.415-1.375v-2.75z"></path>
+    </svg>
+  </div>
+);
+
+================
+File: src/renderer/src/icons/OpenCodeIcon.tsx
+================
+type Props = {
+  width?: number;
+  height?: number;
+  className?: string;
+};
+⋮----
+export const OpenCodeIcon = ({ width = 64, height = 64, className }: Props) => (
+  <div
+    aria-label="OpenCode ZEN"
+    className={`flex items-center justify-center rounded-md ${className || ''}`}
+    style={{
+      backgroundColor: '#131010',
+      color: 'rgb(255, 255, 255)',
+      height: `${height}px`,
+      width: `${width}px`,
+    }}
+  >
+    <svg width={width * 0.95} height={height * 0.95} viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M320 224V352H192V224H320Z" fill="#5A5858"></path>
+      <path fillRule="evenodd" clipRule="evenodd" d="M384 416H128V96H384V416ZM320 160H192V352H320V160Z" fill="white"></path>
     </svg>
   </div>
 );
@@ -21907,7 +22415,7 @@ className=
 e.stopPropagation();
 toggleExpand(item.id);
 ⋮----
-{!item.children && <span className="w-6" />} {/* Spacer for items without children */}
+{!item.children?.length && <span className="w-6" />} {/* Spacer for items without children */}
 ⋮----
 {/* Children */}
 ⋮----
@@ -24273,6 +24781,10 @@ File: src/renderer/index.html
 <!doctype html>
 <html>
   <head>
+<!--    <script-->
+<!--      crossOrigin="anonymous"-->
+<!--      src="https://unpkg.com/react-scan/dist/auto.global.js"-->
+<!--    ></script>-->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>AiderDesk</title>
@@ -24526,6 +25038,7 @@ File: package.json
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint src --fix --cache",
+    "lint:check": "eslint src --cache",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck:mcp": "tsc --noEmit -p tsconfig.mcp-server.json --composite false",
@@ -24534,7 +25047,9 @@ File: package.json
     "dev": "electron-vite dev",
     "dev:no-hmr": "NO_HMR=true electron-vite dev",
     "build:mcp": "esbuild src/mcp-server/aider-desk-mcp-server.ts --bundle --platform=node --outdir=out/mcp-server",
-    "build:server": "esbuild src/main/server/runner.ts --bundle --platform=node --outdir=out/server --external:better-sqlite3 --external:@homebridge/node-pty-prebuilt-multiarch --external:@probelabs/probe --external:electron --tsconfig=tsconfig.server.json && cp -r resources out/resources",
+    "prebuild:server": "electron-vite build && npm run build:mcp",
+    "build:server": "vite build --config vite.config.server.ts && cp -r resources/ out/resources",
+    "postbuild:server": "npm rebuild",
     "build": "npm run typecheck && electron-vite build && npm run build:mcp",
     "postinstall": "electron-builder install-app-deps && node scripts/download-uv.mjs && node scripts/download-probe.mjs && patch-package",
     "build:unpack": "npm run build && electron-builder --dir",
@@ -24542,7 +25057,7 @@ File: package.json
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux",
     "prepare": "husky",
-    "start:server": "AIDER_DESK_HEADLESS=true node out/server/runner.js",
+    "start:server": "node out/server/runner.js",
     "test": "npm run test:node && npm run test:web",
     "test:node": "NODE_ENV=test vitest run --config vitest.config.node.ts",
     "test:web": "NODE_ENV=test vitest run --config vitest.config.web.ts",

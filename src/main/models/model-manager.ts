@@ -22,11 +22,13 @@ import { deepseekProviderStrategy } from './providers/deepseek';
 import { geminiProviderStrategy } from './providers/gemini';
 import { gpustackProviderStrategy } from './providers/gpustack';
 import { groqProviderStrategy } from './providers/groq';
+import { litellmProviderStrategy } from './providers/litellm';
 import { lmStudioProviderStrategy } from './providers/lm-studio';
 import { minimaxProviderStrategy } from './providers/minimax';
 import { ollamaProviderStrategy } from './providers/ollama';
 import { openaiProviderStrategy } from './providers/openai';
 import { openaiCompatibleProviderStrategy } from './providers/openai-compatible';
+import { opencodeProviderStrategy } from './providers/opencode';
 import { openrouterProviderStrategy } from './providers/openrouter';
 import { requestyProviderStrategy } from './providers/requesty';
 import { syntheticProviderStrategy } from './providers/synthetic';
@@ -86,11 +88,13 @@ export class ModelManager {
     gemini: geminiProviderStrategy,
     gpustack: gpustackProviderStrategy,
     groq: groqProviderStrategy,
+    litellm: litellmProviderStrategy,
     lmstudio: lmStudioProviderStrategy,
     minimax: minimaxProviderStrategy,
     ollama: ollamaProviderStrategy,
     openai: openaiProviderStrategy,
     'openai-compatible': openaiCompatibleProviderStrategy,
+    opencode: opencodeProviderStrategy,
     openrouter: openrouterProviderStrategy,
     requesty: requestyProviderStrategy,
     synthetic: syntheticProviderStrategy,

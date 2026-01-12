@@ -278,7 +278,30 @@
     "apiKey": "API 密钥"
   },
   "zaiPlan": {
-    "apiKey": "API 密钥"
+    "apiKey": "API 密钥",
+    "mcp": {
+      "title": "MCP 服务器",
+      "infoTooltip": "添加 Z.AI Coding Plan MCP 服务器以为智能体启用更多功能。",
+      "vision": {
+        "name": "视觉",
+        "description": "使用 GLM-4.6V 模型进行图像和视频分析"
+      },
+      "zread": {
+        "name": "Zread",
+        "description": "搜索和阅读 GitHub 仓库文档和代码"
+      },
+      "webReader": {
+        "name": "网页阅读器",
+        "description": "获取和提取网页内容"
+      },
+      "webSearch": {
+        "name": "网页搜索",
+        "description": "搜索网络获取实时信息"
+      },
+      "add": "添加",
+      "adding": "添加中...",
+      "configured": "已配置"
+    }
   },
   "anthropic": {
     "apiKey": "API 密钥"
@@ -323,6 +346,9 @@
     "apiKey": "API 密钥",
     "modelPlaceholder": "例如 anthropic/claude-3.7-sonnet"
   },
+  "opencode": {
+    "apiKey": "API 密钥"
+  },
   "requesty": {
     "apiKey": "API 密钥",
     "modelPlaceholder": "例如 claude-4-sonnet"
@@ -342,9 +368,11 @@
     "groq": "Groq",
     "gpustack": "GPUStack",
     "lmstudio": "LM Studio",
+    "litellm": "LiteLLM",
     "minimax": "Minimax",
     "ollama": "Ollama",
     "openai": "OpenAI",
+    "opencode": "OpenCode ZEN",
     "openai-compatible": "OpenAI Compatible",
     "openrouter": "OpenRouter",
     "requesty": "Requesty",
@@ -440,7 +468,14 @@
       "autoGenerateTaskName": "自动生成任务名称",
       "autoGenerateTaskNameTooltip": "启用后，模型会根据您的提示生成简洁的任务名称。禁用时，将使用提示的前5个词作为任务名称。",
       "showTaskStateActions": "显示任务状态操作",
-      "showTaskStateActionsTooltip": "启用后，任务状态操作将显示在消息底部。禁用以隐藏这些操作。"
+      "showTaskStateActionsTooltip": "启用后，任务状态操作将显示在消息底部。禁用以隐藏这些操作。",
+      "worktree": "工作树",
+      "worktreeSymlinkFoldersLabel": "符号链接文件夹",
+      "worktreeSymlinkFoldersTooltip": "这些文件夹将从项目根目录符号链接到任务工作树。适用于像 node_modules 这样的大型依赖。",
+      "noSymlinkFolders": "未配置符号链接文件夹",
+      "symlinkFolderPlaceholder": "文件夹名称（例如 node_modules）",
+      "addSymlinkFolder": "添加",
+      "removeSymlinkFolder": "移除文件夹"
     },
     "language": "语言",
     "notifications": {
@@ -876,7 +911,7 @@
     "agent": "代理",
     "aider": "Aider",
     "total": "全部的",
-    "restartTask": "重启任务",
+    "resetTask": "重置",
     "tokenUsage": "{{usedTokens}} / {{maxTokens}}",
     "contextCompactingThreshold": "自动压缩上下文阈值",
     "contextCompactingThresholdOff": "关闭",
@@ -1317,7 +1352,8 @@
     "deleteSelectedConfirm": "您确定要删除 {{count}} 个选中的任务吗？",
     "archiveSelectedConfirm": "您确定要归档 {{count}} 个选中的任务吗？",
     "unarchiveSelectedConfirm": "您确定要取消归档 {{count}} 个选中的任务吗？",
-    "generatingName": "正在生成名称..."
+    "generatingName": "正在生成名称...",
+    "changeState": "更改状态"
   },
   "taskInfo": {
     "createdAt": "创建于",
@@ -1397,7 +1433,6 @@
       "aiCoding": "使用 AI 辅助生成和修改代码",
       "contextManagement": "添加文件到上下文以获得更好的结果",
       "multiModel": "选择多种 AI 模型和提供商",
-      "modes": "在代理和 Aider 模式之间切换",
       "commands": "执行命令和运行测试"
     },
     "tips": {
@@ -1405,7 +1440,18 @@
       "addFiles": "使用侧边栏或 /add 命令添加文件到上下文",
       "askQuestion": "在下方的提示字段中输入您的请求",
       "useCommands": "使用 / 命令进行快速操作",
-      "switchMode": "尝试代理模式以实现自主任务完成"
+      "switchMode": "使用下方的模式选择器在模式之间切换"
+    },
+    "modes": {
+      "title": "选择正确的模式",
+      "agent": {
+        "title": "代理模式",
+        "description": "用于自主任务、复杂工作流程和多步骤操作。代理会使用可用工具独立规划和执行任务。"
+      },
+      "code": {
+        "title": "代码模式",
+        "description": "用于直接代码更改和特定任务。重要提示：将文件添加到上下文以确保 AI 处理正确的文件。"
+      }
     }
   }
 }

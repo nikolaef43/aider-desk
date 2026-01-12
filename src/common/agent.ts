@@ -42,11 +42,13 @@ export type LlmProviderName =
   | 'gemini'
   | 'gpustack'
   | 'groq'
+  | 'litellm'
   | 'lmstudio'
   | 'minimax'
   | 'ollama'
   | 'openai'
   | 'openai-compatible'
+  | 'opencode'
   | 'openrouter'
   | 'requesty'
   | 'synthetic'
@@ -80,11 +82,13 @@ export const AVAILABLE_PROVIDERS: LlmProviderName[] = [
   'gemini',
   'gpustack',
   'groq',
+  'litellm',
   'lmstudio',
   'minimax',
   'ollama',
   'openai',
   'openai-compatible',
+  'opencode',
   'openrouter',
   'requesty',
   'synthetic',
@@ -199,6 +203,13 @@ export interface OpenAiCompatibleProvider extends LlmProviderBase {
 }
 export const isOpenAiCompatibleProvider = (provider: LlmProviderBase): provider is OpenAiCompatibleProvider => provider.name === 'openai-compatible';
 
+export interface LitellmProvider extends LlmProviderBase {
+  name: 'litellm';
+  apiKey: string;
+  baseUrl: string;
+}
+export const isLitellmProvider = (provider: LlmProviderBase): provider is LitellmProvider => provider.name === 'litellm';
+
 export const isOllamaProvider = (provider: LlmProviderBase): provider is OllamaProvider => provider.name === 'ollama';
 
 export interface GpustackProvider extends LlmProviderBase {
@@ -231,6 +242,12 @@ export interface RequestyProvider extends LlmProviderBase {
 }
 export const isRequestyProvider = (provider: LlmProviderBase): provider is RequestyProvider => provider.name === 'requesty';
 
+export interface OpenCodeProvider extends LlmProviderBase {
+  name: 'opencode';
+  apiKey: string;
+}
+export const isOpenCodeProvider = (provider: LlmProviderBase): provider is OpenCodeProvider => provider.name === 'opencode';
+
 export interface ZaiPlanProvider extends LlmProviderBase {
   name: 'zai-plan';
   apiKey: string;
@@ -262,7 +279,9 @@ export type LlmProvider =
   | GpustackProvider
   | CerebrasProvider
   | OpenAiCompatibleProvider
+  | LitellmProvider
   | OllamaProvider
+  | OpenCodeProvider
   | OpenRouterProvider
   | RequestyProvider
   | SyntheticProvider
@@ -279,6 +298,7 @@ export const DEFAULT_PROVIDER_MODELS: Partial<Record<LlmProviderName, string>> =
   groq: 'moonshotai/kimi-k2-instruct-0905',
   openai: 'gpt-5.2',
   openrouter: 'anthropic/claude-sonnet-4.5',
+  opencode: 'claude-sonnet-4-5',
   requesty: 'anthropic/claude-sonnet-4-5',
   synthetic: 'anthropic/claude-sonnet-4.5',
   'zai-plan': 'glm-4.7',
@@ -591,6 +611,13 @@ export const getDefaultProviderParams = <T extends LlmProvider>(providerName: Ll
         reasoningEffort: ReasoningEffort.None,
       } satisfies OpenAiCompatibleProvider;
       break;
+    case 'litellm':
+      provider = {
+        name: 'litellm',
+        apiKey: '',
+        baseUrl: 'http://localhost:4000',
+      } satisfies LitellmProvider;
+      break;
     case 'ollama':
       provider = {
         name: 'ollama',
@@ -610,6 +637,12 @@ export const getDefaultProviderParams = <T extends LlmProvider>(providerName: Ll
         sort: null,
         requireParameters: false,
       } satisfies OpenRouterProvider;
+      break;
+    case 'opencode':
+      provider = {
+        name: 'opencode',
+        apiKey: '',
+      } satisfies OpenCodeProvider;
       break;
     case 'lmstudio':
       provider = {

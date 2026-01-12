@@ -86,13 +86,13 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
     const { isMobile } = useResponsive();
     const api = useApi();
     const { models } = useModelProviders();
-    const { getTaskState, clearSession, restartTask, setMessages, setTodoItems, setAiderModelsData, answerQuestion, interruptResponse, refreshAllFiles } =
+    const { getTaskState, clearSession, resetTask, setMessages, setTodoItems, setAiderModelsData, answerQuestion, interruptResponse, refreshAllFiles } =
       useTask();
     const { getProfiles } = useAgents();
 
     const taskState = getTaskState(task.id, isActive);
     const aiderModelsData = taskState?.aiderModelsData || null;
-    const currentMode = task.currentMode || 'code';
+    const currentMode = task.currentMode || 'agent';
 
     const [addFileDialogOptions, setAddFileDialogOptions] = useState<AddFileDialogOptions | null>(null);
     const [editingMessageIndex, setEditingMessageIndex] = useState<number | null>(null);
@@ -284,8 +284,8 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
       }, 0);
     };
 
-    const handleRestartTask = () => {
-      restartTask(task.id);
+    const handleResetTask = () => {
+      resetTask(task.id);
       setAiderModelsData(task.id, null);
     };
 
@@ -408,6 +408,14 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
       });
     };
 
+    const handleAnswerQuestion = (answer: string) => {
+      answerQuestion(task.id, answer);
+    };
+
+    const handleInterruptResponse = () => {
+      interruptResponse(task.id);
+    };
+
     if (!projectSettings || !settings) {
       return <LoadingOverlay message={t('common.loadingProjectSettings')} />;
     }
@@ -442,7 +450,7 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
             )}
             <div className="overflow-hidden flex-grow relative">
               {displayedMessages.length === 0 && !loading && !messagesPending && task.state !== DefaultTaskState.InProgress ? (
-                <WelcomeMessage />
+                <WelcomeMessage onModeChange={handleModeChange} />
               ) : (
                 <>
                   {settings.virtualizedRendering ? (
@@ -555,8 +563,8 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
                 showFileDialog={showFileDialog}
                 addFiles={handleAddFiles}
                 question={question}
-                answerQuestion={(answer) => answerQuestion(task.id, answer)}
-                interruptResponse={() => interruptResponse(task.id)}
+                answerQuestion={handleAnswerQuestion}
+                interruptResponse={handleInterruptResponse}
                 runCommand={runCommand}
                 runTests={runTests}
                 redoLastUserPrompt={handleRedoLastUserPrompt}
@@ -617,7 +625,7 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
                     maxInputTokens={currentModel?.maxInputTokens || 0}
                     clearMessages={clearMessages}
                     runCommand={runCommand}
-                    restartTask={handleRestartTask}
+                    resetTask={handleResetTask}
                     mode={currentMode}
                     showFileDialog={() =>
                       setAddFileDialogOptions({
@@ -659,7 +667,7 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
             maxInputTokens={maxInputTokens}
             clearMessages={clearMessages}
             runCommand={runCommand}
-            restartTask={handleRestartTask}
+            resetTask={handleResetTask}
             mode={currentMode}
             setAddFileDialogOptions={setAddFileDialogOptions}
             task={task}

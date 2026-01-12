@@ -37,6 +37,7 @@ vi.mock('@/components/ModelLibrary/providers', () => ({
   GeminiParameters: () => <div>Gemini Parameters</div>,
   GpustackParameters: () => <div>Gpustack Parameters</div>,
   GroqParameters: () => <div>Groq Parameters</div>,
+  LitellmParameters: () => <div>Litellm Parameters</div>,
   LmStudioParameters: () => <div>LmStudio Parameters</div>,
   MinimaxParameters: () => <div>Minimax Parameters</div>,
   OllamaParameters: () => <div>Ollama Parameters</div>,
@@ -46,6 +47,7 @@ vi.mock('@/components/ModelLibrary/providers', () => ({
   VertexAIParameters: () => <div>VertexAI Parameters</div>,
   ZaiPlanParameters: () => <div>ZaiPlan Parameters</div>,
   SyntheticParameters: () => <div>Synthetic Parameters</div>,
+  OpenCodeParameters: () => <div>OpenCode Parameters</div>,
 }));
 
 describe('ProviderProfileForm', () => {

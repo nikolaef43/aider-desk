@@ -1,6 +1,6 @@
 # Changelog
 
-## [UNRELEASED]
+## [0.48.0]
 
 - added missing menu actions to the last user message
 - correctly handling copy actions on MacOS and mobile devices
@@ -13,6 +13,18 @@
 - properly using the compacting threshold from the task when updated
 - added configuration option to hide task state actions
 - added output streaming to bash power tool during the execution
+- improved retrieve memories tool description for better results
+- agent mode set as default for new projects and updated empty task message
+- properly replacing ~ in paths of power tools for HOME
+- added agent creator skill
+- added MCP tool auto-setup to Z.AI Coding Plan provider
+- added direct support for OpenCode ZEN provider
+- added icon to the task item in the sidebar in case is in worktree mode
+- added change state submenu to task sidebar for updating task states
+- properly setting the default value for max output tokens when not specified in Aider modes
+- added configurable symlink folders for worktrees to automatically link untracked dependencies
+- added support for ${taskDir} placeholder in MCP server config and updated value of ${projectDir} placeholder
+- added direct support for LiteLLM provider
 
 ## [0.47.0]
 

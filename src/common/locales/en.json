@@ -308,6 +308,9 @@
     "apiKey": "API Key",
     "modelPlaceholder": "e.g. anthropic/claude-3.7-sonnet"
   },
+  "opencode": {
+    "apiKey": "API Key"
+  },
   "requesty": {
     "apiKey": "API Key",
     "modelPlaceholder": "e.g. claude-4-sonnet",
@@ -328,7 +331,30 @@
     "apiKey": "API Key"
   },
   "zaiPlan": {
-    "apiKey": "API Key"
+    "apiKey": "API Key",
+    "mcp": {
+      "title": "MCP Servers",
+      "infoTooltip": "Add Z.AI Coding Plan MCP servers to enable additional capabilities for the agent.",
+      "vision": {
+        "name": "Vision",
+        "description": "Image and video analysis using GLM-4.6V model"
+      },
+      "zread": {
+        "name": "Zread",
+        "description": "Search and read GitHub repository documentation and code"
+      },
+      "webReader": {
+        "name": "Web Reader",
+        "description": "Fetch and extract content from web pages"
+      },
+      "webSearch": {
+        "name": "Web Search",
+        "description": "Search the web for real-time information"
+      },
+      "add": "Add",
+      "adding": "Adding...",
+      "configured": "Configured"
+    }
   },
   "azure": {
     "apiKey": "API Key",
@@ -345,9 +371,11 @@
     "groq": "Groq",
     "gpustack": "GPUStack",
     "lmstudio": "LM Studio",
+    "litellm": "LiteLLM",
     "minimax": "MiniMax",
     "ollama": "Ollama",
     "openai": "OpenAI",
+    "opencode": "OpenCode ZEN",
     "openai-compatible": "OpenAI Compatible",
     "openrouter": "OpenRouter",
     "requesty": "Requesty",
@@ -441,7 +469,14 @@
       "autoGenerateTaskName": "Auto-Generate Task Name",
       "autoGenerateTaskNameTooltip": "When enabled, the model generates a concise task name from your prompt. When disabled, the first 5 words of your prompt will be used as the task name.",
       "showTaskStateActions": "Show Task State Actions",
-      "showTaskStateActionsTooltip": "When enabled, task state actions are displayed at the bottom of messages. Disable to hide these actions."
+      "showTaskStateActionsTooltip": "When enabled, task state actions are displayed at the bottom of messages. Disable to hide these actions.",
+      "worktree": "Worktree",
+      "worktreeSymlinkFoldersLabel": "Symlink Folders",
+      "worktreeSymlinkFoldersTooltip": "These folders will be symlinked from the project root to the task worktree. Useful for large dependencies like node_modules.",
+      "noSymlinkFolders": "No symlink folders configured",
+      "symlinkFolderPlaceholder": "Folder name (e.g. node_modules)",
+      "addSymlinkFolder": "Add",
+      "removeSymlinkFolder": "Remove folder"
     },
     "language": "Language",
     "notifications": {
@@ -900,7 +935,7 @@
     "agent": "Agent",
     "aider": "Aider",
     "total": "Total",
-    "restartTask": "Restart task",
+    "resetTask": "Reset",
     "tokenUsage": "{{usedTokens}} of {{maxTokens}}",
     "contextCompactingThreshold": "Auto-compact threshold",
     "contextCompactingThresholdOff": "Off",
@@ -1310,7 +1345,8 @@
     "deleteSelectedConfirm": "Are you sure you want to delete {{count}} selected tasks?",
     "archiveSelectedConfirm": "Are you sure you want to archive {{count}} selected tasks?",
     "unarchiveSelectedConfirm": "Are you sure you want to unarchive {{count}} selected tasks?",
-    "generatingName": "Generating name..."
+    "generatingName": "Generating name...",
+    "changeState": "Change State"
   },
   "taskInfo": {
     "createdAt": "Created at",
@@ -1390,7 +1426,6 @@
       "aiCoding": "Generate and modify code with AI assistance",
       "contextManagement": "Add files to context for better results",
       "multiModel": "Choose from multiple AI models and providers",
-      "modes": "Switch between Agent and Aider modes",
       "commands": "Execute commands and run tests"
     },
     "tips": {
@@ -1398,7 +1433,18 @@
       "addFiles": "Add files to context using the sidebar or /add command",
       "askQuestion": "Type your request in the prompt field below",
       "useCommands": "Use / commands for quick actions",
-      "switchMode": "Try Agent mode for autonomous task completion"
+      "switchMode": "Switch between modes using the mode selector below"
+    },
+    "modes": {
+      "title": "Choosing the Right Mode",
+      "agent": {
+        "title": "Agent Mode",
+        "description": "Use for autonomous tasks, complex workflows, and multi-step operations. The agent plans and executes tasks independently using available tools."
+      },
+      "code": {
+        "title": "Code Mode",
+        "description": "Use for direct code changes and specific tasks. Important: Add files to context to ensure the AI works on the right files."
+      }
     }
   }
 }
