@@ -12,7 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useSidebarWidth } from './useSidebarWidth';
 
 import { StyledTooltip } from '@/components/common/StyledTooltip';
-import { isLogMessage, isResponseMessage, isToolMessage, isUserMessage, Message, TaskInfoMessage } from '@/types/message';
+import { isLogMessage, isUserMessage, Message, TaskInfoMessage } from '@/types/message';
 import { Messages, MessagesRef } from '@/components/message/Messages';
 import { VirtualizedMessages, VirtualizedMessagesRef } from '@/components/message/VirtualizedMessages';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -36,6 +36,8 @@ import { useTask } from '@/contexts/TaskContext';
 import { useAgents } from '@/contexts/AgentsContext';
 import { useConfiguredHotkeys } from '@/hooks/useConfiguredHotkeys';
 import { LoadingOverlay } from '@/components/common/LoadingOverlay';
+import { useTaskMessages, useTaskState } from '@/stores/taskStore';
+import { showErrorNotification } from '@/utils/notifications';
 
 type AddFileDialogOptions = {
   readOnly: boolean;
@@ -60,6 +62,7 @@ type Props = {
   onArchiveTask?: () => void;
   onUnarchiveTask?: () => void;
   onDeleteTask?: () => void;
+  onToggleTaskSidebar?: () => void;
 };
 
 export const TaskView = forwardRef<TaskViewRef, Props>(
@@ -76,6 +79,7 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
       onArchiveTask,
       onUnarchiveTask,
       onDeleteTask,
+      onToggleTaskSidebar,
     },
     ref,
   ) => {
@@ -86,11 +90,18 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
     const { isMobile } = useResponsive();
     const api = useApi();
     const { models } = useModelProviders();
-    const { getTaskState, clearSession, resetTask, setMessages, setTodoItems, setAiderModelsData, answerQuestion, interruptResponse, refreshAllFiles } =
-      useTask();
+    const { loadTask, clearSession, resetTask, setMessages, setTodoItems, setAiderModelsData, answerQuestion, interruptResponse, refreshAllFiles } = useTask();
     const { getProfiles } = useAgents();
 
-    const taskState = getTaskState(task.id, isActive);
+    const taskState = useTaskState(task.id);
+    const messages = useTaskMessages(task.id);
+
+    useEffect(() => {
+      if (isActive && !taskState.loaded && !taskState.loading) {
+        loadTask(task.id);
+      }
+    }, [isActive, loadTask, task.id, taskState.loaded, taskState.loading]);
+
     const aiderModelsData = taskState?.aiderModelsData || null;
     const currentMode = task.currentMode || 'agent';
 
@@ -138,7 +149,12 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
         e.preventDefault();
         promptFieldRef.current?.focus();
       },
-      { enabled: isActive, scopes: 'task', enableOnFormTags: true, enableOnContentEditable: true },
+      {
+        enabled: isActive,
+        scopes: 'task',
+        enableOnFormTags: true,
+        enableOnContentEditable: true,
+      },
     );
 
     const currentModel = useMemo(() => {
@@ -157,9 +173,9 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
 
     useEffect(() => {
       startMessagesTransition(() => {
-        setTransitionMessages(taskState?.messages || []);
+        setTransitionMessages(messages);
       });
-    }, [taskState?.messages]);
+    }, [messages]);
 
     const todoListVisible = useMemo(() => {
       return currentMode === 'agent' && activeAgentProfile?.useTodoTools;
@@ -181,7 +197,7 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
       return <LoadingOverlay message={t('common.loadingTask')} />;
     }
 
-    const { loading, loaded, allFiles, contextFiles, autocompletionWords, aiderTotalCost, tokensInfo, question, todoItems, messages } = taskState;
+    const { loading, loaded, allFiles, contextFiles, autocompletionWords, aiderTotalCost, tokensInfo, question, todoItems } = taskState;
 
     const displayedMessages = messages;
 
@@ -313,14 +329,19 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
       onDeleteTask?.();
     };
 
-    const handleRemoveMessage = (messageToRemove: Message) => {
-      const isLastMessage = displayedMessages[displayedMessages.length - 1] === messageToRemove;
-
-      if (isLastMessage && (isToolMessage(messageToRemove) || isUserMessage(messageToRemove) || isResponseMessage(messageToRemove))) {
-        api.removeLastMessage(project.baseDir, task.id);
-      }
+    const handleRemoveMessage = async (messageToRemove: Message) => {
+      const originalMessages = messages;
 
       setMessages(task.id, (prevMessages) => prevMessages.filter((msg) => msg.id !== messageToRemove.id));
+
+      try {
+        await api.removeMessage(project.baseDir, task.id, messageToRemove.id);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to remove message:', error);
+        setMessages(task.id, () => originalMessages);
+        showErrorNotification(t('errors.removeMessageFailed'));
+      }
     };
 
     const handleAddTodo = async (name: string) => {
@@ -381,7 +402,7 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
         type: 'task-info',
         content: '',
         task: JSON.parse(JSON.stringify(task)) as TaskData,
-        messageCount: taskState?.messages.length || 0,
+        messageCount: messages.length || 0,
       };
       setMessages(task.id, (prevMessages) => [...prevMessages, taskInfo]);
     };
@@ -434,6 +455,7 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
             onModelsChange={handleModelChange}
             runCommand={runCommand}
             onToggleSidebar={() => setShowSidebar(!showSidebar)}
+            onToggleTaskSidebar={onToggleTaskSidebar}
             updateTask={updateTask}
           />
           <div className="flex-grow overflow-y-hidden relative flex flex-col">
@@ -585,7 +607,9 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
         {!isMobile && (
           <div
             className="border-l border-border-dark-light flex flex-col flex-shrink-0 select-none relative group"
-            style={{ width: isFilesSidebarCollapsed ? FILES_COLLAPSED_WIDTH : sidebarWidth }}
+            style={{
+              width: isFilesSidebarCollapsed ? FILES_COLLAPSED_WIDTH : sidebarWidth,
+            }}
           >
             <StyledTooltip id="files-sidebar-tooltip" />
 

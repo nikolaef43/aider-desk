@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { UsageReportData } from '@common/types';
-import { MdDeleteForever, MdRedo, MdEdit } from 'react-icons/md';
+import { MdDeleteForever, MdEdit, MdRedo } from 'react-icons/md';
 import { FaEllipsisVertical } from 'react-icons/fa6';
 import { twMerge } from 'tailwind-merge';
 
@@ -60,10 +60,7 @@ export const MessageBar = ({ className, content, usageReport, remove, redo, edit
         </div>
       )}
       {isMenuOpen && (remove || redo || edit) && (
-        <div
-          ref={menuRef}
-          className="absolute right-0 bottom-full mb-1 w-[120px] bg-bg-secondary-light border border-border-default-dark rounded shadow-lg z-10"
-        >
+        <div ref={menuRef} className="absolute right-0 bottom-4 mb-1 w-[120px] bg-bg-secondary-light border border-border-default-dark rounded shadow-lg z-10">
           <ul>
             {edit && (
               <li
@@ -85,8 +82,9 @@ export const MessageBar = ({ className, content, usageReport, remove, redo, edit
             )}
             {remove && (
               <li
-                className="flex items-center gap-1 px-2 py-1 text-2xs text-text-primary hover:bg-bg-tertiary cursor-pointer transition-colors"
+                className="flex items-center gap-1 px-2 py-1 text-2xs text-text-primary transition-colors hover:bg-bg-tertiary cursor-pointer"
                 onClick={handleRemoveClick}
+                title={t('messages.remove')}
               >
                 <MdDeleteForever className="w-4 h-4" />
                 <span className="whitespace-nowrap">{t('messages.delete')}</span>
