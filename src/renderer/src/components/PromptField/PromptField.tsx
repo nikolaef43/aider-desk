@@ -66,6 +66,7 @@ const COMMANDS = [
   '/edit-last',
   '/compact',
   '/commit',
+  '/handoff',
   '/init',
   '/clear-logs',
 ];
@@ -130,6 +131,7 @@ type Props = {
   onAutoApproveChanged?: (autoApprove: boolean) => void;
   showSettingsPage?: (pageId?: string, options?: Record<string, unknown>) => void;
   showTaskInfo?: () => void;
+  handoffConversation?: (focus?: string) => Promise<void>;
 };
 
 export const PromptField = forwardRef<PromptFieldRef, Props>(
@@ -169,6 +171,7 @@ export const PromptField = forwardRef<PromptFieldRef, Props>(
       onAutoApproveChanged,
       showSettingsPage,
       showTaskInfo,
+      handoffConversation,
     }: Props,
     ref,
   ) => {
@@ -449,6 +452,14 @@ export const PromptField = forwardRef<PromptFieldRef, Props>(
             prepareForNextPrompt();
             api.compactConversation(baseDir, taskId, mode, args);
             break;
+          case '/handoff': {
+            const focus = args || '';
+            if (handoffConversation) {
+              handoffConversation(focus);
+            }
+            prepareForNextPrompt();
+            break;
+          }
           case '/test': {
             runTests(args);
             break;
@@ -496,6 +507,7 @@ export const PromptField = forwardRef<PromptFieldRef, Props>(
         runCommand,
         showTaskInfo,
         setTextWithDispatch,
+        handoffConversation,
       ],
     );
 
@@ -912,12 +924,6 @@ export const PromptField = forwardRef<PromptFieldRef, Props>(
             <CodeMirror
               ref={(instance) => {
                 editorRef.current = instance;
-                // if (instance?.view && !initialTextRefSet.current && savedText) {
-                //   setTimeout(() => {
-                //     setTextWithDispatch(savedText);
-                //   }, 0);
-                //   initialTextRefSet.current = true;
-                // }
               }}
               onChange={onChange}
               placeholder={question ? t('promptField.questionPlaceholder') : t(`promptField.placeholders.${placeholderIndex}`)}
@@ -968,6 +974,7 @@ export const PromptField = forwardRef<PromptFieldRef, Props>(
                   aboveCursor: true,
                   icons: false,
                   selectOnOpen: false,
+                  tooltipClass: () => (isMobile ? '' : 'max-w-[60vw]'),
                   addToOptions: [
                     {
                       render: (completion) => {
@@ -977,7 +984,9 @@ export const PromptField = forwardRef<PromptFieldRef, Props>(
                         }
 
                         const element = document.createElement('span');
-                        element.className = showInChip ? 'cm-tooltip-autocomplete-chip' : 'cm-tooltip-autocomplete-detail';
+                        element.className = showInChip
+                          ? 'cm-tooltip-autocomplete-chip whitespace-pre-wrap text-right'
+                          : 'cm-tooltip-autocomplete-detail whitespace-pre-wrap text-right';
                         element.innerText = detail;
                         return element;
                       },

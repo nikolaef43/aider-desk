@@ -362,6 +362,7 @@ const TaskEventSubscriber: React.FC<TaskEventSubscriberProps> = ({ baseDir, task
             type: 'loading',
             content: message || t('messages.thinking'),
             promptContext,
+            actionIds,
           };
 
           setMessages(taskId, (prevMessages) => {
@@ -426,7 +427,7 @@ const TaskEventSubscriber: React.FC<TaskEventSubscriberProps> = ({ baseDir, task
 
       setMessages(taskId, (prevMessages) => {
         const loadingMessages = prevMessages.filter(isLoadingMessage);
-        const nonLoadingMessages = prevMessages.filter((message) => !isLoadingMessage(message));
+        const nonLoadingMessages = prevMessages.filter((message) => !isLoadingMessage(message) && message.id !== data.id);
         return [...nonLoadingMessages, userMessage, ...loadingMessages];
       });
     };
@@ -586,7 +587,10 @@ export const TaskProvider: React.FC<{
           return messages;
         }, [] as Message[]);
 
-        setMessages(taskId, (existingMessages) => [...messages, ...existingMessages]);
+        setMessages(taskId, (existingMessages) => [
+          ...messages,
+          ...existingMessages.filter((existingMessage) => !messages.some((message) => message.id === existingMessage.id)),
+        ]);
         updateTaskState(taskId, {
           loading: false,
           loaded: true,

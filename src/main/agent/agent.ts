@@ -37,11 +37,11 @@ import { Client as McpSdkClient } from '@modelcontextprotocol/sdk/client/index.j
 // @ts-expect-error istextorbinary is not typed properly
 import { isBinary } from 'istextorbinary';
 import { fileTypeFromBuffer } from 'file-type';
-import { HELPERS_TOOL_GROUP_NAME, TOOL_GROUP_NAME_SEPARATOR } from '@common/tools';
+import { HELPERS_TOOL_GROUP_NAME, TASKS_TOOL_GROUP_NAME, TASKS_TOOL_SEARCH_PARENT_TASK, TOOL_GROUP_NAME_SEPARATOR } from '@common/tools';
 
 import { createPowerToolset } from './tools/power';
 import { createTodoToolset } from './tools/todo';
-import { createTasksToolset } from './tools/tasks';
+import { createSearchParentTaskTool, createTasksToolset } from './tools/tasks';
 import { createAiderToolset } from './tools/aider';
 import { createHelpersToolset } from './tools/helpers';
 import { createMemoryToolset } from './tools/memory';
@@ -349,8 +349,13 @@ export class Agent {
     }
 
     if (profile.useTaskTools) {
-      const taskTools = createTasksToolset(task, profile, promptContext);
+      const taskTools = createTasksToolset(this.store.getSettings(), task, profile, promptContext);
       Object.assign(toolSet, taskTools);
+    }
+
+    // Add search parent task tool for subtasks
+    if (task.task.parentId !== null) {
+      toolSet[`${TASKS_TOOL_GROUP_NAME}${TOOL_GROUP_NAME_SEPARATOR}${TASKS_TOOL_SEARCH_PARENT_TASK}`] = createSearchParentTaskTool(task, promptContext);
     }
 
     if (profile.useMemoryTools) {
@@ -767,7 +772,7 @@ export class Agent {
             }),
           }),
           system: systemPrompt,
-          messages: optimizeMessages(task, profile, projectProfiles, initialUserRequestMessageIndex, messages, cacheControl),
+          messages: optimizeMessages(messages, cacheControl, task, profile, projectProfiles, initialUserRequestMessageIndex),
           tools: toolSet,
           abortSignal: effectiveAbortSignal,
           maxOutputTokens: effectiveMaxOutputTokens,
@@ -1059,7 +1064,14 @@ export class Agent {
     return messages;
   }
 
-  async generateText(agentProfile: AgentProfile, systemPrompt: string, prompt: string): Promise<string> {
+  async generateText(
+    agentProfile: AgentProfile,
+    systemPrompt: string,
+    prompt: string,
+    messages: ContextMessage[] = [],
+    abortable = true,
+    abortSignal?: AbortSignal,
+  ): Promise<string | undefined> {
     const providers = this.store.getProviders();
     const provider = providers.find((p) => p.id === agentProfile.provider);
     if (!provider) {
@@ -1071,6 +1083,13 @@ export class Agent {
     const providerOptions = this.modelManager.getProviderOptions(provider, agentProfile.model);
     const providerParameters = this.modelManager.getProviderParameters(provider, agentProfile.model);
 
+    const controllerId = uuidv4();
+    const newController = abortable ? new AbortController() : null;
+    if (newController) {
+      this.abortControllers.set(controllerId, newController);
+    }
+    const effectiveAbortSignal = abortSignal || newController?.signal;
+
     logger.info('Generating text:', {
       providerId: provider.id,
       providerName: provider.provider.name,
@@ -1078,15 +1097,37 @@ export class Agent {
       systemPrompt: systemPrompt.substring(0, 100),
       prompt: prompt.substring(0, 100),
     });
-    const result = await generateText({
-      model,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: prompt }],
-      providerOptions,
-      ...providerParameters,
+
+    messages.push({
+      id: uuidv4(),
+      role: 'user',
+      content: prompt,
     });
 
-    return result.text;
+    try {
+      const result = await generateText({
+        model,
+        system: systemPrompt,
+        messages: optimizeMessages(messages),
+        abortSignal: effectiveAbortSignal,
+        providerOptions,
+        ...providerParameters,
+      });
+
+      return result.text;
+    } catch (error) {
+      if (effectiveAbortSignal?.aborted) {
+        logger.info('Generating text aborted by user');
+        return undefined;
+      }
+      logger.error('Error generating text:', error);
+      throw error;
+    } finally {
+      if (newController) {
+        logger.debug('Cleaned up abort controller', { controllerId });
+        this.abortControllers.delete(controllerId);
+      }
+    }
   }
 
   async estimateTokens(task: Task, profile: AgentProfile): Promise<number> {
@@ -1108,12 +1149,12 @@ export class Agent {
       const userRequestMessageIndex = lastUserIndex >= 0 ? lastUserIndex : 0;
 
       const optimizedMessages = optimizeMessages(
+        messages,
+        cacheControl,
         task,
         profile,
         this.agentProfileManager.getProjectProfiles(task.getProjectDir()),
         userRequestMessageIndex,
-        messages,
-        cacheControl,
       );
 
       // Format tools for the prompt
@@ -1262,7 +1303,7 @@ export class Agent {
     }
 
     // Check for context compacting
-    const totalTokens = usageReport.sentTokens + usageReport.receivedTokens;
+    const totalTokens = usageReport.sentTokens + usageReport.receivedTokens + (usageReport.cacheReadTokens ?? 0);
     if (maxTokens && totalTokens > (maxTokens * contextCompactingThreshold) / 100) {
       logger.info(`Token usage ${totalTokens} exceeds threshold of ${contextCompactingThreshold}%. Compacting conversation.`);
       task.addLogMessage('info', 'Token usage exceeds threshold. Compacting conversation...', false, promptContext);

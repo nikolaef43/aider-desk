@@ -1,10 +1,13 @@
 import {
+  AgentProfile,
   AgentProfilesUpdatedData,
   AutocompletionData,
+  BranchInfo,
   ClearTaskData,
   CloudflareTunnelStatus,
   CommandOutputData,
   ContextFilesUpdatedData,
+  CreateTaskParams,
   CustomCommand,
   CustomCommandsUpdatedData,
   EditFormat,
@@ -14,6 +17,9 @@ import {
   LogData,
   McpServerConfig,
   McpTool,
+  MemoryEmbeddingProgress,
+  MemoryEntry,
+  MessageRemovedData,
   Mode,
   Model,
   ModelsData,
@@ -29,8 +35,9 @@ import {
   ResponseChunkData,
   ResponseCompletedData,
   SettingsData,
-  TaskStateData,
+  TaskCreatedData,
   TaskData,
+  TaskStateData,
   TerminalData,
   TerminalExitData,
   TodoItem,
@@ -40,13 +47,8 @@ import {
   UserMessageData,
   VersionsInfo,
   VoiceSession,
-  AgentProfile,
-  MemoryEntry,
-  WorktreeIntegrationStatusUpdatedData,
-  BranchInfo,
   WorktreeIntegrationStatus,
-  MemoryEmbeddingProgress,
-  MessageRemovedData,
+  WorktreeIntegrationStatusUpdatedData,
 } from '@common/types';
 
 export interface ApplicationAPI {
@@ -106,7 +108,7 @@ export interface ApplicationAPI {
   loadMcpServerTools: (serverName: string, config?: McpServerConfig) => Promise<McpTool[] | null>;
   reloadMcpServers: (mcpServers: Record<string, McpServerConfig>, force?: boolean) => Promise<void>;
 
-  createNewTask: (baseDir: string) => Promise<TaskData>;
+  createNewTask: (baseDir: string, params?: CreateTaskParams) => Promise<TaskData>;
   updateTask: (baseDir: string, id: string, updates: Partial<TaskData>) => Promise<boolean>;
   deleteTask: (baseDir: string, id: string) => Promise<boolean>;
   duplicateTask: (baseDir: string, taskId: string) => Promise<TaskData>;
@@ -122,6 +124,7 @@ export interface ApplicationAPI {
   removeLastMessage: (baseDir: string, taskId: string) => void;
   removeMessage: (baseDir: string, taskId: string, messageId: string) => Promise<void>;
   compactConversation: (baseDir: string, taskId: string, mode: Mode, customInstructions?: string) => void;
+  handoffConversation: (baseDir: string, taskId: string, focus?: string) => Promise<void>;
   setZoomLevel: (level: number) => Promise<void>;
 
   getVersions: (forceRefresh?: boolean) => Promise<VersionsInfo | null>;
@@ -173,7 +176,7 @@ export interface ApplicationAPI {
   addOpenSettingsListener: (callback: (pageId: string) => void) => () => void;
 
   // Task lifecycle event listeners
-  addTaskCreatedListener: (baseDir: string, callback: (data: TaskData) => void) => () => void;
+  addTaskCreatedListener: (baseDir: string, callback: (data: TaskCreatedData) => void) => () => void;
   addTaskInitializedListener: (baseDir: string, callback: (data: TaskData) => void) => () => void;
   addTaskUpdatedListener: (baseDir: string, callback: (data: TaskData) => void) => () => void;
   addTaskStartedListener: (baseDir: string, callback: (data: TaskData) => void) => () => void;

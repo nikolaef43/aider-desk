@@ -1,12 +1,24 @@
 # Changelog
 
-## [UNRELEASED]
+## [0.49.0]
 
 - improved responsiveness for small screen devices with mobile-first layouts for task sidebar, task bar, and prompt field components
 - added full-screen task sidebar on mobile with toggle button
 - added flexible layout adjustments for model selectors and dropdowns to prevent overflow on small screens
 - added action to remove any message in the conversation
 - added tooltip to read and edit file power tools to show the file path on hover
+- added support for subtasks with worktree inheritance
+- updated task tools with the subtask capabilities
+- added missing scrollbar to task sidebar on mobile devices
+- added Select all action into menu
+- ensuring to include usage in for LiteLLM models when streaming
+- added optimistic updates to redo user message and interrupt response
+- setting max width for the autocompletion popup in prompt field
+- added task search tools for searching within tasks and parent tasks using semantic search
+- properly interrupting determine task state action after agent completion
+- max output tokens for models is now undefined by default
+- added handoff feature to create a new task with focus from current conversation
+- changes made in mdx files are now properly showing up in diff viewer
 
 ## [0.48.1]
 

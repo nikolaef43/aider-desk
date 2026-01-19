@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ProjectSettingsSchema, TaskDataSchema } from '@common/types';
+import { CreateTaskParams, ProjectSettingsSchema, TaskDataSchema } from '@common/types';
 
 import { BaseApi } from './base-api';
 
@@ -148,6 +148,8 @@ const InitProjectRulesFileSchema = z.object({
 
 const CreateNewTaskSchema = z.object({
   projectDir: z.string().min(1, 'Project directory is required'),
+  parentId: z.string().nullable().optional(),
+  name: z.string().optional(),
 });
 
 const UpdateTaskSchema = z.object({
@@ -201,6 +203,12 @@ const CompactConversationSchema = z.object({
   taskId: z.string().min(1, 'Task id is required'),
   mode: z.enum(['agent', 'code', 'ask', 'architect', 'context']),
   customInstructions: z.string().optional(),
+});
+
+const HandoffConversationSchema = z.object({
+  projectDir: z.string().min(1, 'Project directory is required'),
+  taskId: z.string().min(1, 'Task id is required'),
+  focus: z.string().optional(),
 });
 
 const ScrapeWebSchema = z.object({
@@ -434,8 +442,9 @@ export class ProjectApi extends BaseApi {
           return;
         }
 
-        const { projectDir } = parsed;
-        const task = await this.eventsHandler.createNewTask(projectDir);
+        const { projectDir, parentId, name } = parsed;
+        const params: CreateTaskParams = { parentId, name };
+        const task = await this.eventsHandler.createNewTask(projectDir, params);
         res.status(200).json(task);
       }),
     );
@@ -611,6 +620,21 @@ export class ProjectApi extends BaseApi {
         const { projectDir, taskId, mode, customInstructions } = parsed;
         await this.eventsHandler.compactConversation(projectDir, taskId, mode, customInstructions);
         res.status(200).json({ message: 'Conversation compacted' });
+      }),
+    );
+
+    // Handoff conversation
+    router.post(
+      '/project/handoff-conversation',
+      this.handleRequest(async (req, res) => {
+        const parsed = this.validateRequest(HandoffConversationSchema, req.body, res);
+        if (!parsed) {
+          return;
+        }
+
+        const { projectDir, taskId, focus } = parsed;
+        await this.eventsHandler.handoffConversation(projectDir, taskId, focus);
+        res.status(200).json({ message: 'Conversation handed off' });
       }),
     );
 

@@ -228,6 +228,7 @@
     "modelIdPlaceholder": "e.g. custom-gpt-4-turbo",
     "maxInputTokens": "Context Window",
     "maxOutputTokens": "Max Output Tokens",
+    "limit": "Limit",
     "temperature": "Temperature",
     "temperatureTooltip": "Controls the randomness of model responses. Lower values (0.0-0.3) produce more focused and deterministic outputs, while higher values (0.7-1.0) generate more creative and varied responses.",
     "cacheWrites": "Cache Writes",
@@ -977,7 +978,16 @@
       "getTaskMessage": "Get task message",
       "createTask": "Create task",
       "deleteTask": "Delete task",
+      "searchTask": "Search task:",
+      "inTask": "in",
+      "searchTaskNoMatches": "No matches found.",
+      "searchParentTask": "Search parent task:",
+      "inParentTask": "in",
+      "searchParentTaskNoMatches": "No matches found.",
+      "name": "Name",
+      "parentTaskId": "Parent Task ID",
       "execute": "Execute",
+      "executeInBackground": "Execute in background",
       "yes": "Yes",
       "no": "No",
       "taskId": "Task ID",
@@ -1168,7 +1178,8 @@
     "stopResponse": "Stop response",
     "sendMessage": "Send message (Enter)",
     "clearChat": "Clear chat",
-    "agentModeOnly": "Available in Agent mode only"
+    "agentModeOnly": "Available in Agent mode only",
+    "handoffError": "Handoff failed: {{error}}"
   },
   "agentProfiles": {
     "title": "Agents",
@@ -1243,7 +1254,8 @@
     "think-tokens": "Set the thinking token budget (supports formats like 8096, 8k, 10.5k, 0.5M)",
     "tokens": "Report on the number of tokens used by the current chat context",
     "undo": "Undo the last git commit if it was done by Aider",
-    "web": "Scrape a webpage and save it to a file. Use /web url [file] with optional [file]."
+    "web": "Scrape a webpage and save it to a file. Use /web url [file] with optional [file].",
+    "handoff": "Handoff conversation to new task with focus"
   },
   "telemetry": {
     "title": "Telemetry Information",
@@ -1350,7 +1362,9 @@
     "archiveSelectedConfirm": "Are you sure you want to archive {{count}} selected tasks?",
     "unarchiveSelectedConfirm": "Are you sure you want to unarchive {{count}} selected tasks?",
     "generatingName": "Generating name...",
-    "changeState": "Change State"
+    "changeState": "Change State",
+    "createSubtask": "Create subtask",
+    "deleteConfirmWithSubtasks": "This task has {{count}} subtask(s). Delete anyway?"
   },
   "taskInfo": {
     "createdAt": "Created at",

@@ -29,6 +29,8 @@ import {
   TASKS_TOOL_GET_TASK_MESSAGE,
   TASKS_TOOL_CREATE_TASK,
   TASKS_TOOL_DELETE_TASK,
+  TASKS_TOOL_SEARCH_TASK,
+  TASKS_TOOL_SEARCH_PARENT_TASK,
 } from '@common/tools';
 
 import { CommandOutputMessageBlock } from './CommandOutputMessageBlock';
@@ -52,6 +54,8 @@ import { GetTaskToolMessage } from './GetTaskToolMessage';
 import { GetTaskMessageToolMessage } from './GetTaskMessageToolMessage';
 import { CreateTaskToolMessage } from './CreateTaskToolMessage';
 import { DeleteTaskToolMessage } from './DeleteTaskToolMessage';
+import { SearchTaskToolMessage } from './SearchTaskToolMessage';
+import { SearchParentTaskToolMessage } from './SearchParentTaskToolMessage';
 import { StoreMemoryToolMessage } from './StoreMemoryToolMessage';
 import { RetrieveMemoryToolMessage } from './RetrieveMemoryToolMessage';
 import { DeleteMemoryToolMessage } from './DeleteMemoryToolMessage';
@@ -85,17 +89,18 @@ type Props = {
   remove?: () => void;
   redo?: () => void;
   edit?: (content: string) => void;
+  onInterrupt?: () => void;
 };
 
-const MessageBlockComponent = ({ baseDir, taskId, message, allFiles, renderMarkdown, compact = false, remove, redo, edit }: Props) => {
+const MessageBlockComponent = ({ baseDir, taskId, message, allFiles, renderMarkdown, compact = false, remove, redo, edit, onInterrupt }: Props) => {
   const { t } = useTranslation();
 
   if (isLoadingMessage(message)) {
-    return <LoadingMessageBlock key={message.content} message={message} />;
+    return <LoadingMessageBlock key={message.content} message={message} baseDir={baseDir} taskId={taskId} onInterrupt={onInterrupt} />;
   }
 
   if (isLogMessage(message)) {
-    return <LogMessageBlock baseDir={baseDir} taskId={taskId} message={message} onRemove={remove} compact={compact} />;
+    return <LogMessageBlock baseDir={baseDir} taskId={taskId} message={message} onRemove={remove} compact={compact} onInterrupt={onInterrupt} />;
   }
 
   if (isReflectedMessage(message)) {
@@ -175,6 +180,10 @@ const MessageBlockComponent = ({ baseDir, taskId, message, allFiles, renderMarkd
             return <CreateTaskToolMessage message={toolMessage} onRemove={remove} compact={compact} />;
           case TASKS_TOOL_DELETE_TASK:
             return <DeleteTaskToolMessage message={toolMessage} onRemove={remove} compact={compact} />;
+          case TASKS_TOOL_SEARCH_TASK:
+            return <SearchTaskToolMessage message={toolMessage} onRemove={remove} compact={compact} />;
+          case TASKS_TOOL_SEARCH_PARENT_TASK:
+            return <SearchParentTaskToolMessage message={toolMessage} onRemove={remove} compact={compact} />;
           default:
             break;
         }
@@ -222,7 +231,7 @@ const MessageBlockComponent = ({ baseDir, taskId, message, allFiles, renderMarkd
           id: toolMessage.id,
           content: logMessageContent,
         };
-        return <LogMessageBlock baseDir={baseDir} taskId={taskId} message={logMessage} onRemove={remove} compact={compact} />;
+        return <LogMessageBlock baseDir={baseDir} taskId={taskId} message={logMessage} onRemove={remove} compact={compact} onInterrupt={onInterrupt} />;
       }
       default:
         break;

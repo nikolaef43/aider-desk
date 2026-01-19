@@ -12,7 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useSidebarWidth } from './useSidebarWidth';
 
 import { StyledTooltip } from '@/components/common/StyledTooltip';
-import { isLogMessage, isUserMessage, Message, TaskInfoMessage } from '@/types/message';
+import { isLogMessage, isTaskInfoMessage, isUserMessage, Message, TaskInfoMessage } from '@/types/message';
 import { Messages, MessagesRef } from '@/components/message/Messages';
 import { VirtualizedMessages, VirtualizedMessagesRef } from '@/components/message/VirtualizedMessages';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -53,7 +53,8 @@ const FILES_COLLAPSED_WIDTH = 36;
 type Props = {
   project: ProjectData;
   task: TaskData;
-  updateTask: (updates: Partial<TaskData>, useOptimistic?: boolean) => void;
+  updateTask: (taskId: string, updates: Partial<TaskData>, useOptimistic?: boolean) => void;
+  updateOptimisticTaskState: (taskId: string, taskState: string) => void;
   inputHistory: string[];
   isActive?: boolean;
   showSettingsPage?: (pageId?: string, options?: Record<string, unknown>) => void;
@@ -75,6 +76,7 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
       isActive = false,
       showSettingsPage,
       shouldFocusPrompt = false,
+      updateOptimisticTaskState,
       onProceed,
       onArchiveTask,
       onUnarchiveTask,
@@ -193,10 +195,6 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
       messagesRef.current?.scrollToBottom();
     }, []);
 
-    if (!taskState) {
-      return <LoadingOverlay message={t('common.loadingTask')} />;
-    }
-
     const { loading, loaded, allFiles, contextFiles, autocompletionWords, aiderTotalCost, tokensInfo, question, todoItems } = taskState;
 
     const displayedMessages = messages;
@@ -249,19 +247,31 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
     };
 
     const handleModeChange = (mode: Mode) => {
-      updateTask({ currentMode: mode });
+      updateTask(task.id, { currentMode: mode });
     };
 
     const handleMarkAsDone = () => {
-      updateTask({ state: DefaultTaskState.Done });
+      updateTask(task.id, { state: DefaultTaskState.Done });
     };
 
     const runPrompt = (prompt: string) => {
+      updateOptimisticTaskState(task.id, DefaultTaskState.InProgress);
       if (editingMessageIndex !== null) {
         // This submission is an edit of a previous message
         setEditingMessageIndex(null); // Clear editing state
         setMessages(task.id, (prevMessages) => {
-          return prevMessages.slice(0, editingMessageIndex);
+          return prevMessages
+            .filter((_, index) => index <= editingMessageIndex)
+            .map((message, index) => {
+              if (index === editingMessageIndex) {
+                return {
+                  ...message,
+                  content: prompt,
+                };
+              } else {
+                return message;
+              }
+            });
         });
         api.redoLastUserPrompt(project.baseDir, task.id, currentMode, prompt);
       } else {
@@ -273,32 +283,46 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
       await api.savePrompt(project.baseDir, task.id, prompt);
     };
 
-    const handleEditLastUserMessage = (content?: string) => {
-      let contentToEdit = content;
-      const messageIndex = displayedMessages.findLastIndex(isUserMessage);
+    const handleEditLastUserMessage = useCallback(
+      (content?: string) => {
+        let contentToEdit = content;
+        const messageIndex = displayedMessages.findLastIndex(isUserMessage);
 
-      if (messageIndex === -1) {
-        // eslint-disable-next-line no-console
-        console.warn('No user message found to edit.');
-        return;
-      }
+        if (messageIndex === -1) {
+          // eslint-disable-next-line no-console
+          console.warn('No user message found to edit.');
+          return;
+        }
 
-      if (contentToEdit === undefined) {
-        const lastUserMessage = displayedMessages[messageIndex];
-        contentToEdit = lastUserMessage.content;
-      }
-      if (contentToEdit === undefined) {
-        // eslint-disable-next-line no-console
-        console.warn('Could not determine content to edit.');
-        return;
-      }
+        if (contentToEdit === undefined) {
+          const lastUserMessage = displayedMessages[messageIndex];
+          contentToEdit = lastUserMessage.content;
+        }
+        if (contentToEdit === undefined) {
+          // eslint-disable-next-line no-console
+          console.warn('Could not determine content to edit.');
+          return;
+        }
 
-      setEditingMessageIndex(messageIndex);
-      setTimeout(() => {
-        promptFieldRef.current?.setText(contentToEdit);
-        promptFieldRef.current?.focus();
-      }, 0);
-    };
+        setEditingMessageIndex(messageIndex);
+        setTimeout(() => {
+          promptFieldRef.current?.setText(contentToEdit);
+          promptFieldRef.current?.focus();
+        }, 0);
+      },
+      [displayedMessages],
+    );
+
+    useEffect(() => {
+      if (task.handoff && displayedMessages.length > 0) {
+        setTimeout(() => {
+          handleEditLastUserMessage();
+        }, 0);
+
+        updateTask(task.id, { handoff: false });
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [task.handoff, task.id, displayedMessages]);
 
     const handleResetTask = () => {
       resetTask(task.id);
@@ -306,6 +330,11 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
     };
 
     const handleRedoLastUserPrompt = () => {
+      const lastUserMessageIndex = displayedMessages.findLastIndex(isUserMessage);
+      setMessages(task.id, (prevMessages) => {
+        return prevMessages.filter((_, index) => index <= lastUserMessageIndex);
+      });
+      updateOptimisticTaskState(task.id, DefaultTaskState.InProgress);
       api.redoLastUserPrompt(project.baseDir, task.id, currentMode);
     };
 
@@ -333,6 +362,10 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
       const originalMessages = messages;
 
       setMessages(task.id, (prevMessages) => prevMessages.filter((msg) => msg.id !== messageToRemove.id));
+
+      if (isTaskInfoMessage(messageToRemove) || isLogMessage(messageToRemove)) {
+        return;
+      }
 
       try {
         await api.removeMessage(project.baseDir, task.id, messageToRemove.id);
@@ -424,7 +457,7 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
     };
 
     const handleAutoApproveChanged = (autoApprove: boolean) => {
-      updateTask({
+      updateTask(task.id, {
         autoApprove,
       });
     };
@@ -435,6 +468,15 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
 
     const handleInterruptResponse = () => {
       interruptResponse(task.id);
+      updateOptimisticTaskState(task.id, DefaultTaskState.Interrupted);
+    };
+
+    const handleHandoff = async (focus?: string) => {
+      try {
+        await api.handoffConversation(project.baseDir, task.id, focus);
+      } catch (error) {
+        showErrorNotification(error instanceof Error ? error.message : String(error));
+      }
     };
 
     if (!projectSettings || !settings) {
@@ -498,6 +540,7 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
                       onArchiveTask={handleArchiveTask}
                       onUnarchiveTask={handleUnarchiveTask}
                       onDeleteTask={handleDeleteTask}
+                      onInterrupt={handleInterruptResponse}
                     />
                   ) : (
                     <Messages
@@ -522,6 +565,7 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
                       onArchiveTask={handleArchiveTask}
                       onUnarchiveTask={handleUnarchiveTask}
                       onDeleteTask={handleDeleteTask}
+                      onInterrupt={handleInterruptResponse}
                     />
                   )}
                 </>
@@ -600,6 +644,7 @@ export const TaskView = forwardRef<TaskViewRef, Props>(
                 onAutoApproveChanged={handleAutoApproveChanged}
                 showSettingsPage={showSettingsPage}
                 showTaskInfo={handleShowTaskInfo}
+                handoffConversation={handleHandoff}
               />
             </div>
           </div>

@@ -319,6 +319,8 @@ src/
           ReflectedMessageBlock.tsx
           ResponseMessageBlock.tsx
           RetrieveMemoryToolMessage.tsx
+          SearchParentTaskToolMessage.tsx
+          SearchTaskToolMessage.tsx
           SemanticSearchToolMessage.tsx
           StoreMemoryToolMessage.tsx
           SubagentToolMessage.tsx
@@ -1523,6 +1525,7 @@ File: src/common/locales/en.json
     "modelIdPlaceholder": "e.g. custom-gpt-4-turbo",
     "maxInputTokens": "Context Window",
     "maxOutputTokens": "Max Output Tokens",
+    "limit": "Limit",
     "temperature": "Temperature",
     "temperatureTooltip": "Controls the randomness of model responses. Lower values (0.0-0.3) produce more focused and deterministic outputs, while higher values (0.7-1.0) generate more creative and varied responses.",
     "cacheWrites": "Cache Writes",
@@ -2272,7 +2275,16 @@ File: src/common/locales/en.json
       "getTaskMessage": "Get task message",
       "createTask": "Create task",
       "deleteTask": "Delete task",
+      "searchTask": "Search task:",
+      "inTask": "in",
+      "searchTaskNoMatches": "No matches found.",
+      "searchParentTask": "Search parent task:",
+      "inParentTask": "in",
+      "searchParentTaskNoMatches": "No matches found.",
+      "name": "Name",
+      "parentTaskId": "Parent Task ID",
       "execute": "Execute",
+      "executeInBackground": "Execute in background",
       "yes": "Yes",
       "no": "No",
       "taskId": "Task ID",
@@ -2463,7 +2475,8 @@ File: src/common/locales/en.json
     "stopResponse": "Stop response",
     "sendMessage": "Send message (Enter)",
     "clearChat": "Clear chat",
-    "agentModeOnly": "Available in Agent mode only"
+    "agentModeOnly": "Available in Agent mode only",
+    "handoffError": "Handoff failed: {{error}}"
   },
   "agentProfiles": {
     "title": "Agents",
@@ -2538,7 +2551,8 @@ File: src/common/locales/en.json
     "think-tokens": "Set the thinking token budget (supports formats like 8096, 8k, 10.5k, 0.5M)",
     "tokens": "Report on the number of tokens used by the current chat context",
     "undo": "Undo the last git commit if it was done by Aider",
-    "web": "Scrape a webpage and save it to a file. Use /web url [file] with optional [file]."
+    "web": "Scrape a webpage and save it to a file. Use /web url [file] with optional [file].",
+    "handoff": "Handoff conversation to new task with focus"
   },
   "telemetry": {
     "title": "Telemetry Information",
@@ -2645,7 +2659,9 @@ File: src/common/locales/en.json
     "archiveSelectedConfirm": "Are you sure you want to archive {{count}} selected tasks?",
     "unarchiveSelectedConfirm": "Are you sure you want to unarchive {{count}} selected tasks?",
     "generatingName": "Generating name...",
-    "changeState": "Change State"
+    "changeState": "Change State",
+    "createSubtask": "Create subtask",
+    "deleteConfirmWithSubtasks": "This task has {{count}} subtask(s). Delete anyway?"
   },
   "taskInfo": {
     "createdAt": "Created at",
@@ -2974,6 +2990,7 @@ File: src/common/locales/zh.json
     "modelIdPlaceholder": "例如 custom-gpt-4-turbo",
     "maxInputTokens": "上下文窗口",
     "maxOutputTokens": "最大输出令牌数",
+    "limit": "限制",
     "temperature": "温度",
     "temperatureTooltip": "控制模型响应的随机性。较低的值（0.0-0.3）产生更专注和确定性的输出，而较高的值（0.7-1.0）生成更有创意和多样化的响应。当未设置时，使用模型的默认温度。",
     "cacheWrites": "缓存写入",
@@ -3706,7 +3723,16 @@ File: src/common/locales/zh.json
       "getTaskMessage": "获取任务消息",
       "createTask": "创建任务",
       "deleteTask": "删除任务",
+      "searchTask": "搜索任务:",
+      "inTask": "在",
+      "searchTaskNoMatches": "未找到匹配项。",
+      "searchParentTask": "搜索父任务:",
+      "inParentTask": "在",
+      "searchParentTaskNoMatches": "未找到匹配项。",
+      "name": "名称",
+      "parentTaskId": "父任务ID",
       "execute": "执行",
+      "executeInBackground": "在后台执行",
       "yes": "是",
       "no": "否",
       "taskId": "任务ID",
@@ -3891,7 +3917,8 @@ File: src/common/locales/zh.json
     "stopResponse": "停止响应",
     "sendMessage": "发送消息(Enter)",
     "clearChat": "清除聊天",
-    "agentModeOnly": "仅在代理模式下可用"
+    "agentModeOnly": "仅在代理模式下可用",
+    "handoffError": "交接失败：{{error}}"
   },
   "agentProfiles": {
     "title": "代理配置",
@@ -3966,7 +3993,8 @@ File: src/common/locales/zh.json
     "tokens": "报告当前聊天上下文使用的令牌数量",
     "undo": "撤消 Aider 完成的最后一次 git 提交",
     "task-info": "显示任务信息",
-    "web": "抓取网页内容并保存到文件。使用 /web url [文件] 格式，其中 [文件] 为可选参数"
+    "web": "抓取网页内容并保存到文件。使用 /web url [文件] 格式，其中 [文件] 为可选参数",
+    "handoff": "交接对话到新任务并聚焦"
   },
   "telemetry": {
     "title": "遥测信息",
@@ -4110,7 +4138,9 @@ File: src/common/locales/zh.json
     "archiveSelectedConfirm": "您确定要归档 {{count}} 个选中的任务吗？",
     "unarchiveSelectedConfirm": "您确定要取消归档 {{count}} 个选中的任务吗？",
     "generatingName": "正在生成名称...",
-    "changeState": "更改状态"
+    "changeState": "更改状态",
+    "createSubtask": "创建子任务",
+    "deleteConfirmWithSubtasks": "此任务有 {{count}} 个子任务。仍然要删除吗？"
   },
   "taskInfo": {
     "createdAt": "创建于",
@@ -4516,12 +4546,15 @@ export const getProviderModelId = (model: Model): string =>
 File: src/common/api.ts
 ================
 import {
+  AgentProfile,
   AgentProfilesUpdatedData,
   AutocompletionData,
+  BranchInfo,
   ClearTaskData,
   CloudflareTunnelStatus,
   CommandOutputData,
   ContextFilesUpdatedData,
+  CreateTaskParams,
   CustomCommand,
   CustomCommandsUpdatedData,
   EditFormat,
@@ -4531,6 +4564,9 @@ import {
   LogData,
   McpServerConfig,
   McpTool,
+  MemoryEmbeddingProgress,
+  MemoryEntry,
+  MessageRemovedData,
   Mode,
   Model,
   ModelsData,
@@ -4546,8 +4582,9 @@ import {
   ResponseChunkData,
   ResponseCompletedData,
   SettingsData,
-  TaskStateData,
+  TaskCreatedData,
   TaskData,
+  TaskStateData,
   TerminalData,
   TerminalExitData,
   TodoItem,
@@ -4557,13 +4594,8 @@ import {
   UserMessageData,
   VersionsInfo,
   VoiceSession,
-  AgentProfile,
-  MemoryEntry,
-  WorktreeIntegrationStatusUpdatedData,
-  BranchInfo,
   WorktreeIntegrationStatus,
-  MemoryEmbeddingProgress,
-  MessageRemovedData,
+  WorktreeIntegrationStatusUpdatedData,
 } from '@common/types';
 ⋮----
 export interface ApplicationAPI {
@@ -4623,7 +4655,7 @@ export interface ApplicationAPI {
   loadMcpServerTools: (serverName: string, config?: McpServerConfig) => Promise<McpTool[] | null>;
   reloadMcpServers: (mcpServers: Record<string, McpServerConfig>, force?: boolean) => Promise<void>;
 
-  createNewTask: (baseDir: string) => Promise<TaskData>;
+  createNewTask: (baseDir: string, params?: CreateTaskParams) => Promise<TaskData>;
   updateTask: (baseDir: string, id: string, updates: Partial<TaskData>) => Promise<boolean>;
   deleteTask: (baseDir: string, id: string) => Promise<boolean>;
   duplicateTask: (baseDir: string, taskId: string) => Promise<TaskData>;
@@ -4639,6 +4671,7 @@ export interface ApplicationAPI {
   removeLastMessage: (baseDir: string, taskId: string) => void;
   removeMessage: (baseDir: string, taskId: string, messageId: string) => Promise<void>;
   compactConversation: (baseDir: string, taskId: string, mode: Mode, customInstructions?: string) => void;
+  handoffConversation: (baseDir: string, taskId: string, focus?: string) => Promise<void>;
   setZoomLevel: (level: number) => Promise<void>;
 
   getVersions: (forceRefresh?: boolean) => Promise<VersionsInfo | null>;
@@ -4690,7 +4723,7 @@ export interface ApplicationAPI {
   addOpenSettingsListener: (callback: (pageId: string) => void) => () => void;
 
   // Task lifecycle event listeners
-  addTaskCreatedListener: (baseDir: string, callback: (data: TaskData) => void) => () => void;
+  addTaskCreatedListener: (baseDir: string, callback: (data: TaskCreatedData) => void) => () => void;
   addTaskInitializedListener: (baseDir: string, callback: (data: TaskData) => void) => () => void;
   addTaskUpdatedListener: (baseDir: string, callback: (data: TaskData) => void) => () => void;
   addTaskStartedListener: (baseDir: string, callback: (data: TaskData) => void) => () => void;
@@ -5480,6 +5513,22 @@ export type WorkingMode = z.infer<typeof WorkingModeSchema>;
 ⋮----
 export type TaskData = z.infer<typeof TaskDataSchema>;
 ⋮----
+export interface CreateTaskParams {
+  parentId?: string | null;
+  name?: string;
+  autoApprove?: boolean;
+  activate?: boolean;
+  handoff?: boolean;
+  sendEvent?: boolean;
+}
+⋮----
+export interface TaskCreatedData {
+  baseDir: string;
+  task: TaskData;
+  activate?: boolean;
+  editLast?: boolean;
+}
+⋮----
 export enum DefaultTaskState {
   Todo = 'TODO',
   InProgress = 'IN_PROGRESS',
@@ -5511,6 +5560,7 @@ export interface Model {
   providerId: string;
   maxInputTokens?: number;
   maxOutputTokens?: number;
+  maxOutputTokensLimit?: number;
   temperature?: number;
   inputCostPerToken?: number;
   outputCostPerToken?: number;
@@ -6036,7 +6086,9 @@ const findMessagesForToolCallId = (toolCallId: string) =>
 ================
 File: src/main/agent/tools/tasks.ts
 ================
-import { tool, type ToolSet } from 'ai';
+import path from 'path';
+⋮----
+import { type Tool, tool, type ToolSet } from 'ai';
 import { z } from 'zod';
 import {
   TASKS_TOOL_CREATE_TASK,
@@ -6046,23 +6098,36 @@ import {
   TASKS_TOOL_GET_TASK_MESSAGE,
   TASKS_TOOL_GROUP_NAME,
   TASKS_TOOL_LIST_TASKS,
+  TASKS_TOOL_SEARCH_PARENT_TASK,
+  TASKS_TOOL_SEARCH_TASK,
   TOOL_GROUP_NAME_SEPARATOR,
 } from '@common/tools';
-import { AgentProfile, PromptContext, TaskData, ToolApprovalState } from '@common/types';
+import { AgentProfile, PromptContext, SettingsData, TaskData, ToolApprovalState } from '@common/types';
+import { search } from '@probelabs/probe';
+import { fileExists } from '@common/utils';
 ⋮----
 import { ApprovalManager } from './approval-manager';
 ⋮----
+import { AIDER_DESK_TASKS_DIR, PROBE_BINARY_PATH } from '@/constants';
+import logger from '@/logger';
+import { isAbortError } from '@/utils/errors';
 import { Task } from '@/task';
 ⋮----
-export const createTasksToolset = (task: Task, profile: AgentProfile, promptContext?: PromptContext): ToolSet =>
+export const createTasksToolset = (settings: SettingsData, task: Task, profile: AgentProfile, promptContext?: PromptContext): ToolSet =>
 ⋮----
 // Filter by state if provided
 ⋮----
 // Apply pagination
 ⋮----
+// Count subtasks for this task
+⋮----
+// Find subtasks of this task
+⋮----
 // Handle negative indexing
 ⋮----
 actualIndex = contextMessages.length + messageIndex; // e.g., -1 becomes length-1
+⋮----
+// Determine if parentTaskId should be available (only for top-level tasks)
 ⋮----
 // Parse modelId to extract provider and model
 ⋮----
@@ -6070,6 +6135,21 @@ actualIndex = contextMessages.length + messageIndex; // e.g., -1 becomes length-
 // We need to get the actual Task instance to call methods on it
 ⋮----
 // Prevent deleting the current task
+⋮----
+// @ts-expect-error probe is not typed properly
+⋮----
+/**
+ * Creates the search parent task tool for subtasks.
+ * This tool is not included in the default toolset and should be added
+ * directly in agent.ts's getAvailableTools method when task is a subtask.
+ */
+export const createSearchParentTaskTool = (task: Task, promptContext?: PromptContext): Tool =>
+⋮----
+// Always use parent task ID
+⋮----
+// No approval required for parent task search
+⋮----
+// @ts-expect-error probe is not typed properly
 
 ================
 File: src/main/agent/tools/todo.ts
@@ -6365,11 +6445,11 @@ import { Client as McpSdkClient } from '@modelcontextprotocol/sdk/client/index.j
 // @ts-expect-error istextorbinary is not typed properly
 import { isBinary } from 'istextorbinary';
 import { fileTypeFromBuffer } from 'file-type';
-import { HELPERS_TOOL_GROUP_NAME, TOOL_GROUP_NAME_SEPARATOR } from '@common/tools';
+import { HELPERS_TOOL_GROUP_NAME, TASKS_TOOL_GROUP_NAME, TASKS_TOOL_SEARCH_PARENT_TASK, TOOL_GROUP_NAME_SEPARATOR } from '@common/tools';
 ⋮----
 import { createPowerToolset } from './tools/power';
 import { createTodoToolset } from './tools/todo';
-import { createTasksToolset } from './tools/tasks';
+import { createSearchParentTaskTool, createTasksToolset } from './tools/tasks';
 import { createAiderToolset } from './tools/aider';
 import { createHelpersToolset } from './tools/helpers';
 import { createMemoryToolset } from './tools/memory';
@@ -6445,6 +6525,8 @@ private async getAvailableTools(
 // Skip tools marked as 'Never' approved
 ⋮----
 return; // Do not add the tool if it's never approved
+⋮----
+// Add search parent task tool for subtasks
 ⋮----
 // Add helper tools
 ⋮----
@@ -6553,7 +6635,14 @@ private async prepareMessages(task: Task, profile: AgentProfile, contextMessages
 ⋮----
 // Add message history
 ⋮----
-async generateText(agentProfile: AgentProfile, systemPrompt: string, prompt: string): Promise<string>
+async generateText(
+    agentProfile: AgentProfile,
+    systemPrompt: string,
+    prompt: string,
+    messages: ContextMessage[] = [],
+    abortable = true,
+    abortSignal?: AbortSignal,
+): Promise<string | undefined>
 ⋮----
 async estimateTokens(task: Task, profile: AgentProfile): Promise<number>
 ⋮----
@@ -6736,12 +6825,12 @@ import { getSubagentId } from '@/agent/tools/subagents';
  * Optimizes the messages before sending them to the LLM. This should reduce the token count and improve the performance.
  */
 export const optimizeMessages = (
-  task: Task,
-  profile: AgentProfile,
-  projectProfiles: AgentProfile[],
-  userRequestMessageIndex: number,
   messages: ModelMessage[],
-  cacheControl: CacheControl | undefined,
+  cacheControl?: CacheControl,
+  task: Task | null = null,
+  profile: AgentProfile | null = null,
+  projectProfiles: AgentProfile[] = [],
+  userRequestMessageIndex: number = -1,
 ) =>
 ⋮----
 const addImportantReminders = (
@@ -7148,6 +7237,7 @@ import {
   AgentProfilesUpdatedData,
   WorktreeIntegrationStatus,
   WorktreeIntegrationStatusUpdatedData,
+  TaskCreatedData,
 } from '@common/types';
 ⋮----
 import type { BrowserWindow } from 'electron';
@@ -7239,7 +7329,7 @@ sendProjectSettingsUpdated(baseDir: string, settings: ProjectSettings): void
 sendAgentProfilesUpdated(profiles: AgentProfile[]): void
 ⋮----
 // Task lifecycle events
-sendTaskCreated(task: TaskData): void
+sendTaskCreated(task: TaskData, activate?: boolean): void
 ⋮----
 sendTaskInitialized(task: TaskData): void
 ⋮----
@@ -8777,6 +8867,8 @@ private enrichWithModelInfo(models: Model[], profile: ProviderProfile, strategy:
 ⋮----
 private enrichWithOverrides(models: Model[], providerId: string): Model[]
 ⋮----
+// maxOutputTokens and temperature should be also overridden by undefined values
+⋮----
 /**
    * Detect and add automatic providers from environment variables
    */
@@ -9122,7 +9214,7 @@ File: src/main/project/project.ts
 import fs from 'fs/promises';
 import path from 'path';
 ⋮----
-import { CustomCommand, ProjectSettings, SettingsData, TaskData } from '@common/types';
+import { CustomCommand, ProjectSettings, SettingsData, TaskData, CreateTaskParams } from '@common/types';
 import { fileExists } from '@common/utils';
 import { v4 as uuidv4 } from 'uuid';
 ⋮----
@@ -9165,7 +9257,9 @@ constructor(
 ⋮----
 public async start()
 ⋮----
-public async createNewTask()
+public async createNewTask(params?: CreateTaskParams)
+⋮----
+// adding files from internal task that keeps track of files to new task
 ⋮----
 private prepareTask(taskId: string = uuidv4(), initialTaskData?: Partial<TaskData>)
 ⋮----
@@ -9197,11 +9291,17 @@ public getCustomCommands()
 ⋮----
 public sendCustomCommandsUpdated(commands: CustomCommand[])
 ⋮----
-public async deleteTask(taskId: string): Promise<void>
+private async deleteTaskInternal(taskId: string): Promise<void>
 ⋮----
 // Close the task if it's loaded
 ⋮----
 // Delete the task directory
+⋮----
+public async deleteTask(taskId: string): Promise<void>
+⋮----
+// First, find and delete all subtasks recursively
+⋮----
+// Then delete the parent task
 ⋮----
 public async duplicateTask(taskId: string): Promise<TaskData>
 ⋮----
@@ -9295,6 +9395,7 @@ import {
   CompactConversationPromptData,
   ConflictResolutionPromptData,
   ConflictResolutionSystemPromptData,
+  HandoffPromptData,
   InitProjectPromptData,
   PromptTemplateData,
   PromptTemplateName,
@@ -9351,6 +9452,8 @@ workflow: '', // Placeholder
 ================
 File: src/main/prompts/types.ts
 ================
+import { ContextFile } from '@common/types';
+⋮----
 export interface ToolPermissions {
   aiderTools: boolean;
   powerTools: {
@@ -9403,6 +9506,11 @@ export interface CompactConversationPromptData {
   customInstructions?: string;
 }
 ⋮----
+export interface HandoffPromptData {
+  focus?: string;
+  contextFiles?: ContextFile[];
+}
+⋮----
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CommitMessagePromptData {
   // Static for now
@@ -9446,7 +9554,8 @@ export type PromptTemplateName =
   | 'task-name'
   | 'conflict-resolution'
   | 'conflict-resolution-system'
-  | 'update-task-state';
+  | 'update-task-state'
+  | 'handoff';
 
 ================
 File: src/main/server/rest-api/agent-api.ts
@@ -9609,7 +9718,7 @@ File: src/main/server/rest-api/project-api.ts
 ================
 import { Router } from 'express';
 import { z } from 'zod';
-import { ProjectSettingsSchema, TaskDataSchema } from '@common/types';
+import { CreateTaskParams, ProjectSettingsSchema, TaskDataSchema } from '@common/types';
 ⋮----
 import { BaseApi } from './base-api';
 ⋮----
@@ -9666,6 +9775,8 @@ registerRoutes(router: Router): void
 // Remove message by ID
 ⋮----
 // Compact conversation
+⋮----
+// Handoff conversation
 ⋮----
 // Scrape web
 ⋮----
@@ -10583,7 +10694,7 @@ private removeByToolCallId(toolCallId: string): string[]
 ⋮----
 removeLastMessage(): void
 ⋮----
-removeLastUserMessage(): string | null
+removeMessagesUpToLastUserMessage(): ContextMessage[]
 ⋮----
 toConnectorMessages(contextMessages: ContextMessage[] = this.messages):
 ⋮----
@@ -10703,7 +10814,7 @@ import {
   ModelInfo,
 } from '@common/types';
 import { extractTextContent, fileExists, parseUsageReport } from '@common/utils';
-import { COMPACT_CONVERSATION_AGENT_PROFILE, CONFLICT_RESOLUTION_PROFILE, INIT_PROJECT_AGENTS_PROFILE } from '@common/agent';
+import { COMPACT_CONVERSATION_AGENT_PROFILE, CONFLICT_RESOLUTION_PROFILE, HANDOFF_AGENT_PROFILE, INIT_PROJECT_AGENTS_PROFILE } from '@common/agent';
 import { v4 as uuidv4 } from 'uuid';
 import debounce from 'lodash/debounce';
 import { isEqual } from 'lodash';
@@ -10820,6 +10931,8 @@ private async initInternal()
 ⋮----
 // Check if worktree is enabled for this task
 ⋮----
+// Worktree is already set (e.g. inherited from parent)
+⋮----
 // Create a default worktree for this task
 ⋮----
 // Check if worktree exists and set worktreeEnabled accordingly
@@ -10854,15 +10967,15 @@ private async waitForCurrentAgentToFinish()
 ⋮----
 private resolveAgentRunPromises()
 ⋮----
-public async runPrompt(prompt: string, mode: Mode = 'code', addToInputHistory = true): Promise<ResponseCompletedData[]>
+public async runPrompt(prompt: string, mode: Mode = 'code', addToInputHistory = true, userMessageId = uuidv4()): Promise<ResponseCompletedData[]>
 ⋮----
 // Generate promptContext for this run
 ⋮----
 public async savePromptOnly(prompt: string, addInputHistory = true): Promise<void>
 ⋮----
-// Add user message to context
-⋮----
 // Add to context manager
+⋮----
+// Add user message to context
 ⋮----
 public async runPromptInAider(prompt: string, promptContext: PromptContext, mode?: Mode): Promise<ResponseCompletedData[]>
 ⋮----
@@ -11153,7 +11266,33 @@ const extractSummary = (content: string): string =>
 ⋮----
 // Clear existing context and add the summary
 ⋮----
-// add messages to session
+// Collect all new messages before setting the context
+⋮----
+// Set all messages at once
+⋮----
+// Prevent memory leaks by cleaning up pending prompt resources
+⋮----
+public async handoffConversation(mode: Mode, focus: string = ''): Promise<void>
+⋮----
+// Get context messages
+⋮----
+// Get context files to transfer
+⋮----
+// Generate the handoff prompt using agent.generateText
+⋮----
+// Agent mode logic
+⋮----
+// Other modes (ask, edit)
+⋮----
+// Create new task without sending event (sendEvent flag defaults to true)
+⋮----
+// Get the newly created Task instance
+⋮----
+// Add prompt to new task
+⋮----
+// Transfer context files
+⋮----
+// Send task-created event to trigger activation and handoff
 ⋮----
 public async generateContextMarkdown(): Promise<string | null>
 ⋮----
@@ -11266,8 +11405,6 @@ public async mergeWorktreeToMain(squash: boolean, targetBranch?: string, commitM
 // Try to generate commit message using AI
 ⋮----
 // Fallback to task name if AI generation fails
-⋮----
-// No commits to merge, use default message
 ⋮----
 // Store merge state for potential revert
 ⋮----
@@ -12584,6 +12721,7 @@ import {
   ResponseCompletedData,
   SettingsData,
   TaskData,
+  CreateTaskParams,
   TaskStateData,
   TodoItem,
   UsageDataRow,
@@ -12665,6 +12803,8 @@ async redoLastUserPrompt(baseDir: string, taskId: string, mode: Mode, updatedPro
 async resumeTask(baseDir: string, taskId: string): Promise<void>
 ⋮----
 async compactConversation(baseDir: string, taskId: string, mode: Mode, customInstructions?: string): Promise<void>
+⋮----
+async handoffConversation(baseDir: string, taskId: string, focus?: string): Promise<void>
 ⋮----
 async loadInputHistory(baseDir: string): Promise<string[]>
 ⋮----
@@ -12748,7 +12888,7 @@ async scrapeWeb(baseDir: string, taskId: string, url: string, filePath?: string)
 ⋮----
 // Check if path looks like a directory (ends with separator)
 ⋮----
-async createNewTask(baseDir: string): Promise<TaskData>
+async createNewTask(baseDir: string, params?: CreateTaskParams): Promise<TaskData>
 ⋮----
 async updateTask(baseDir: string, id: string, updates: Partial<TaskData>): Promise<TaskData | undefined>
 ⋮----
@@ -12871,7 +13011,7 @@ const setupCustomMenu = (): void =>
 ⋮----
 // File menu
 ⋮----
-// Edit menu (without Select All)
+// Edit menu
 ⋮----
 // View menu
 ⋮----
@@ -12919,6 +13059,7 @@ import {
   ProviderProfile,
   SettingsData,
   TaskData,
+  CreateTaskParams,
   TodoItem,
   AgentProfile,
 } from '@common/types';
@@ -13458,6 +13599,7 @@ import {
   ResponseCompletedData,
   SettingsData,
   TaskData,
+  CreateTaskParams,
   TerminalData,
   TerminalExitData,
   TokensInfoData,
@@ -13465,6 +13607,7 @@ import {
   UserMessageData,
   VersionsInfo,
   WorktreeIntegrationStatusUpdatedData,
+  TaskCreatedData,
 } from '@common/types';
 import { electronAPI } from '@electron-toolkit/preload';
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
@@ -13523,6 +13666,7 @@ import {
   ResponseCompletedData,
   SettingsData,
   TaskData,
+  CreateTaskParams,
   TaskStateData,
   TerminalData,
   TerminalExitData,
@@ -13538,6 +13682,7 @@ import {
   MemoryEmbeddingProgress,
   WorktreeIntegrationStatus,
   WorktreeIntegrationStatusUpdatedData,
+  TaskCreatedData,
 } from '@common/types';
 import { ApplicationAPI } from '@common/api';
 import axios, { type AxiosInstance } from 'axios';
@@ -13568,7 +13713,7 @@ type EventDataMap = {
   'project-settings-updated': { baseDir: string; settings: ProjectSettings };
   'worktree-integration-status-updated': WorktreeIntegrationStatusUpdatedData;
   'agent-profiles-updated': AgentProfilesUpdatedData;
-  'task-created': TaskData;
+  'task-created': TaskCreatedData;
   'task-initialized': TaskData;
   'task-updated': TaskData;
   'task-deleted': TaskData;
@@ -13665,7 +13810,7 @@ deleteTodo(baseDir: string, taskId: string, name: string): Promise<TodoItem[]>
 clearAllTodos(baseDir: string, taskId: string): Promise<TodoItem[]>
 loadMcpServerTools(serverName: string, config?: McpServerConfig): Promise<McpTool[] | null>
 reloadMcpServers(mcpServers: Record<string, McpServerConfig>, force = false): Promise<void>
-createNewTask(baseDir: string): Promise<TaskData>
+createNewTask(baseDir: string, params?: CreateTaskParams): Promise<TaskData>
 updateTask(baseDir: string, id: string, updates: Partial<TaskData>): Promise<boolean>
 deleteTask(baseDir: string, id: string): Promise<boolean>
 duplicateTask(baseDir: string, taskId: string): Promise<TaskData>
@@ -13685,6 +13830,9 @@ removeLastMessage(baseDir: string, taskId: string): void
 ⋮----
 async removeMessage(baseDir: string, taskId: string, messageId: string): Promise<void>
 compactConversation(baseDir: string, taskId: string, mode: Mode, customInstructions?: string): void
+⋮----
+async handoffConversation(baseDir: string, taskId: string, focus?: string): Promise<void>
+⋮----
 setZoomLevel(level: number): Promise<void>
 ⋮----
 // eslint-disable-next-line no-console
@@ -13739,7 +13887,7 @@ addProjectSettingsUpdatedListener(baseDir: string, callback: (data:
 addWorktreeIntegrationStatusUpdatedListener(baseDir: string, taskId: string, callback: (data: WorktreeIntegrationStatusUpdatedData) => void): () => void
 ⋮----
 // Task lifecycle event listeners
-addTaskCreatedListener(baseDir: string, callback: (data: TaskData) => void): () => void
+addTaskCreatedListener(baseDir: string, callback: (data: TaskCreatedData) => void): () => void
 ⋮----
 addTaskInitializedListener(baseDir: string, callback: (data: TaskData) => void): () => void
 ⋮----
@@ -15555,6 +15703,7 @@ type Props = {
   remove?: (message: Message) => void;
   redo?: () => void;
   edit?: (content: string) => void;
+  onInterrupt?: () => void;
 };
 ⋮----
 const aggregateUsage = (messages: Message[]): UsageReportData | undefined =>
@@ -15648,14 +15797,16 @@ return <ExpandableMessageBlock title=
 ================
 File: src/renderer/src/components/message/LoadingMessageBlock.tsx
 ================
-import { Message } from '@/types/message';
+import { LoadingMessage } from '@/types/message';
 import { useTypingAnimation } from '@/hooks/useTypingAnimation';
+import { MessageActions } from '@/components/message/MessageActions';
 ⋮----
 type Props = {
-  message: Message;
+  message: LoadingMessage;
+  baseDir: string;
+  taskId: string;
+  onInterrupt?: () => void;
 };
-⋮----
-export const LoadingMessageBlock = (
 
 ================
 File: src/renderer/src/components/message/LogMessageBlock.tsx
@@ -15676,6 +15827,7 @@ type Props = {
   message: LogMessage;
   onRemove?: () => void;
   compact?: boolean;
+  onInterrupt?: () => void;
 };
 ⋮----
 const renderMessage = () => (
@@ -15695,10 +15847,13 @@ import { useState } from 'react';
 ⋮----
 import { Button } from '../common/Button';
 ⋮----
+import { useApi } from '@/contexts/ApiContext';
+⋮----
 type Props = {
   actionIds: string[];
   baseDir: string;
   taskId: string;
+  onInterrupt?: () => void;
 };
 ⋮----
 const handleAbortRebase = () =>
@@ -15779,6 +15934,8 @@ import {
   TASKS_TOOL_GET_TASK_MESSAGE,
   TASKS_TOOL_CREATE_TASK,
   TASKS_TOOL_DELETE_TASK,
+  TASKS_TOOL_SEARCH_TASK,
+  TASKS_TOOL_SEARCH_PARENT_TASK,
 } from '@common/tools';
 ⋮----
 import { CommandOutputMessageBlock } from './CommandOutputMessageBlock';
@@ -15802,6 +15959,8 @@ import { GetTaskToolMessage } from './GetTaskToolMessage';
 import { GetTaskMessageToolMessage } from './GetTaskMessageToolMessage';
 import { CreateTaskToolMessage } from './CreateTaskToolMessage';
 import { DeleteTaskToolMessage } from './DeleteTaskToolMessage';
+import { SearchTaskToolMessage } from './SearchTaskToolMessage';
+import { SearchParentTaskToolMessage } from './SearchParentTaskToolMessage';
 import { StoreMemoryToolMessage } from './StoreMemoryToolMessage';
 import { RetrieveMemoryToolMessage } from './RetrieveMemoryToolMessage';
 import { DeleteMemoryToolMessage } from './DeleteMemoryToolMessage';
@@ -15835,9 +15994,10 @@ type Props = {
   remove?: () => void;
   redo?: () => void;
   edit?: (content: string) => void;
+  onInterrupt?: () => void;
 };
 ⋮----
-switch (toolMessage.serverName)
+const MessageBlockComponent = (
 ⋮----
 const arePropsEqual = (prevProps: Props, nextProps: Props): boolean =>
 
@@ -15854,7 +16014,7 @@ import { TaskStateActions } from 'src/renderer/src/components/message/TaskStateA
 import { MessageBlock } from './MessageBlock';
 import { GroupMessageBlock } from './GroupMessageBlock';
 ⋮----
-import { isGroupMessage, isUserMessage, Message } from '@/types/message';
+import { isGroupMessage, isLoadingMessage, isUserMessage, Message } from '@/types/message';
 import { IconButton } from '@/components/common/IconButton';
 import { StyledTooltip } from '@/components/common/StyledTooltip';
 import { groupMessagesByPromptContext } from '@/components/message/utils';
@@ -15884,6 +16044,7 @@ type Props = {
   onArchiveTask?: () => void;
   onUnarchiveTask?: () => void;
   onDeleteTask?: () => void;
+  onInterrupt?: () => void;
 };
 ⋮----
 // Group messages by promptContext.group.id
@@ -15981,6 +16142,48 @@ title=
 confirmButtonText=
 
 ================
+File: src/renderer/src/components/message/SearchParentTaskToolMessage.tsx
+================
+import { useTranslation } from 'react-i18next';
+import { RiCheckboxCircleFill, RiCloseCircleFill, RiErrorWarningFill } from 'react-icons/ri';
+import { CgSpinner } from 'react-icons/cg';
+import { MdOutlineContentPasteSearch } from 'react-icons/md';
+⋮----
+import { ToolMessage } from '@/types/message';
+import { CodeInline } from '@/components/common/CodeInline';
+import { ExpandableMessageBlock } from '@/components/message/ExpandableMessageBlock';
+import { StyledTooltip } from '@/components/common/StyledTooltip';
+⋮----
+type Props = {
+  message: ToolMessage;
+  onRemove?: () => void;
+  compact?: boolean;
+};
+⋮----
+return <ExpandableMessageBlock title=
+
+================
+File: src/renderer/src/components/message/SearchTaskToolMessage.tsx
+================
+import { useTranslation } from 'react-i18next';
+import { RiCheckboxCircleFill, RiCloseCircleFill, RiErrorWarningFill } from 'react-icons/ri';
+import { CgSpinner } from 'react-icons/cg';
+import { MdOutlineContentPasteSearch } from 'react-icons/md';
+⋮----
+import { ToolMessage } from '@/types/message';
+import { CodeInline } from '@/components/common/CodeInline';
+import { ExpandableMessageBlock } from '@/components/message/ExpandableMessageBlock';
+import { StyledTooltip } from '@/components/common/StyledTooltip';
+⋮----
+type Props = {
+  message: ToolMessage;
+  onRemove?: () => void;
+  compact?: boolean;
+};
+⋮----
+return <ExpandableMessageBlock title=
+
+================
 File: src/renderer/src/components/message/SemanticSearchToolMessage.tsx
 ================
 import { useTranslation } from 'react-i18next';
@@ -16059,8 +16262,8 @@ const renderHeader = () => (
 File: src/renderer/src/components/message/TaskInfoMessage.tsx
 ================
 import { useTranslation } from 'react-i18next';
-import { FaClipboard, FaFolderOpen } from 'react-icons/fa';
-import { MdAssignment } from 'react-icons/md';
+import { FaFolderOpen } from 'react-icons/fa';
+import { MdAssignment, MdClose } from 'react-icons/md';
 ⋮----
 import { TaskInfoMessage as TaskInfoMessageType } from '@/types/message';
 import { CodeInline } from '@/components/common/CodeInline';
@@ -16073,10 +16276,6 @@ type Props = {
   message: TaskInfoMessageType;
   onRemove?: () => void;
 };
-⋮----
-const handleCopyTaskId = async () =>
-⋮----
-// eslint-disable-next-line no-console
 ⋮----
 const handleOpenFolder = async (path: string) =>
 ⋮----
@@ -16431,7 +16630,7 @@ import { TaskStateActions } from 'src/renderer/src/components/message/TaskStateA
 import { MessageBlock } from './MessageBlock';
 import { GroupMessageBlock } from './GroupMessageBlock';
 ⋮----
-import { isGroupMessage, isUserMessage, Message } from '@/types/message';
+import { isGroupMessage, isLoadingMessage, isUserMessage, Message } from '@/types/message';
 import { IconButton } from '@/components/common/IconButton';
 import { StyledTooltip } from '@/components/common/StyledTooltip';
 import { groupMessagesByPromptContext } from '@/components/message/utils';
@@ -16461,6 +16660,7 @@ type Props = {
   onArchiveTask?: () => void;
   onUnarchiveTask?: () => void;
   onDeleteTask?: () => void;
+  onInterrupt?: () => void;
 };
 ⋮----
 // Group messages by promptContext.group.id
@@ -18127,7 +18327,7 @@ type Props = {
   mode: Mode;
   showFileDialog: () => void;
   task: TaskData;
-  updateTask: (updates: Partial<TaskData>) => void;
+  updateTask: (taskId: string, updates: Partial<TaskData>) => void;
   refreshAllFiles: (useGit?: boolean) => Promise<void>;
 };
 ⋮----
@@ -18180,7 +18380,7 @@ type Props = {
   mode: Mode;
   setAddFileDialogOptions: React.Dispatch<React.SetStateAction<AddFileDialogOptions | null>>;
   task: TaskData;
-  updateTask: (updates: Partial<TaskData>) => void;
+  updateTask: (taskId: string, updates: Partial<TaskData>) => void;
   refreshAllFiles: (useGit?: boolean) => Promise<void>;
 };
 ⋮----
@@ -18315,7 +18515,7 @@ e.stopPropagation(); // Prevent tab selection/drag initiation
 ================
 File: src/renderer/src/components/project/ProjectView.tsx
 ================
-import { InputHistoryData, ProjectData, ProjectStartMode, TaskData } from '@common/types';
+import { InputHistoryData, ProjectData, ProjectStartMode, TaskCreatedData, TaskData } from '@common/types';
 import { useTranslation } from 'react-i18next';
 import { startTransition, useCallback, useEffect, useOptimistic, useRef, useState, useTransition } from 'react';
 import { useLocalStorage } from '@reactuses/core';
@@ -18332,7 +18532,6 @@ import { TaskProvider } from '@/contexts/TaskContext';
 import { useConfiguredHotkeys } from '@/hooks/useConfiguredHotkeys';
 import { getSortedVisibleTasks } from '@/utils/task-utils';
 import { useResponsive } from '@/hooks/useResponsive';
-import { useTaskStore } from '@/stores/taskStore';
 ⋮----
 type Props = {
   project: ProjectData;
@@ -18346,7 +18545,7 @@ const handleStartupMode = async (tasks: TaskData[]) =>
 ⋮----
 const handleProjectStarted = () =>
 ⋮----
-const handleTaskCreated = (taskData: TaskData) =>
+const handleTaskCreated = (
 ⋮----
 const handleTaskInitialized = (taskData: TaskData) =>
 ⋮----
@@ -18394,7 +18593,6 @@ const handleToggleTaskSidebar = () =>
 ⋮----
 // eslint-disable-next-line no-console
 ⋮----
-onUnarchiveTask=
 onDeleteTask=
 
 ================
@@ -18439,7 +18637,7 @@ type Props = {
   runCommand: (command: string) => void;
   onToggleSidebar: () => void;
   onToggleTaskSidebar?: () => void;
-  updateTask: (updates: Partial<TaskData>, useOptimistic?: boolean) => void;
+  updateTask: (taskId: string, updates: Partial<TaskData>, useOptimistic?: boolean) => void;
 };
 ⋮----
 // Use task provider/model first, fallback to active agent profile
@@ -18502,7 +18700,7 @@ import { clsx } from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BiDuplicate, BiArchive, BiArchiveIn } from 'react-icons/bi';
 import { HiXMark } from 'react-icons/hi2';
-import { useDebounce, useLongPress } from '@reactuses/core';
+import { useDebounce, useLocalStorage, useLongPress } from '@reactuses/core';
 ⋮----
 import { getSortedVisibleTasks } from '@/utils/task-utils';
 import { Input } from '@/components/common/Input';
@@ -18535,8 +18733,6 @@ const handleStateSubmenuToggle = () =>
 ⋮----
 <div className=
 ⋮----
-data-tooltip-content=
-⋮----
 className={clsx(
             'transition-opacity p-1.5 rounded-md hover:bg-bg-tertiary text-text-muted hover:text-text-primary',
             !isMenuOpen && 'opacity-0 group-hover:opacity-100',
@@ -18563,6 +18759,10 @@ const handleMultiselectClose = () =>
 const handleKeyDown = (e: globalThis.KeyboardEvent) =>
 ⋮----
 // Handle click outside for multiselect menu
+⋮----
+// Automatically expand parent when activeTaskId is a subtask
+⋮----
+// eslint-disable-next-line react-hooks/exhaustive-deps
 ⋮----
 const handleTaskClick = (e: MouseEvent, taskId: string) =>
 ⋮----
@@ -18619,9 +18819,11 @@ const handleBulkArchive = async () =>
 ⋮----
 // eslint-disable-next-line no-console
 ⋮----
-label=
+const toggleExpand = (e: MouseEvent) =>
 ⋮----
-onTogglePin=
+const handleCreateSubtask = (e: MouseEvent) =>
+⋮----
+label=
 ⋮----
 onChangeState=
 ⋮----
@@ -18668,7 +18870,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useSidebarWidth } from './useSidebarWidth';
 ⋮----
 import { StyledTooltip } from '@/components/common/StyledTooltip';
-import { isLogMessage, isUserMessage, Message, TaskInfoMessage } from '@/types/message';
+import { isLogMessage, isTaskInfoMessage, isUserMessage, Message, TaskInfoMessage } from '@/types/message';
 import { Messages, MessagesRef } from '@/components/message/Messages';
 import { VirtualizedMessages, VirtualizedMessagesRef } from '@/components/message/VirtualizedMessages';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -18707,7 +18909,8 @@ export type TaskViewRef = {
 type Props = {
   project: ProjectData;
   task: TaskData;
-  updateTask: (updates: Partial<TaskData>, useOptimistic?: boolean) => void;
+  updateTask: (taskId: string, updates: Partial<TaskData>, useOptimistic?: boolean) => void;
+  updateOptimisticTaskState: (taskId: string, taskState: string) => void;
   inputHistory: string[];
   isActive?: boolean;
   showSettingsPage?: (pageId?: string, options?: Record<string, unknown>) => void;
@@ -18748,9 +18951,13 @@ const runPrompt = (prompt: string) =>
 // This submission is an edit of a previous message
 setEditingMessageIndex(null); // Clear editing state
 ⋮----
+const handleSavePrompt = async (prompt: string) =>
+⋮----
 // eslint-disable-next-line no-console
 ⋮----
 // eslint-disable-next-line no-console
+⋮----
+// eslint-disable-next-line react-hooks/exhaustive-deps
 ⋮----
 const handleResetTask = () =>
 ⋮----
@@ -18770,17 +18977,29 @@ const handleRemoveMessage = async (messageToRemove: Message) =>
 ⋮----
 // eslint-disable-next-line no-console
 ⋮----
-} catch (error)
+const handleAddTodo = async (name: string) =>
 ⋮----
 // eslint-disable-next-line no-console
 ⋮----
-// eslint-disable-next-line no-console
+const handleToggleTodo = async (name: string, completed: boolean) =>
 ⋮----
 // eslint-disable-next-line no-console
 ⋮----
-// eslint-disable-next-line no-console
+const handleUpdateTodo = async (name: string, updates: Partial<TodoItem>) =>
 ⋮----
 // eslint-disable-next-line no-console
+⋮----
+const handleDeleteTodo = async (name: string) =>
+⋮----
+// eslint-disable-next-line no-console
+⋮----
+const handleClearAllTodos = async () =>
+⋮----
+// eslint-disable-next-line no-console
+⋮----
+const handleShowTaskInfo = () =>
+⋮----
+const handleTerminalViewResize = () =>
 ⋮----
 const handleSidebarResize = async (_, data: ResizeCallbackData) =>
 ⋮----
@@ -18794,7 +19013,7 @@ const handleAnswerQuestion = (answer: string) =>
 ⋮----
 const handleInterruptResponse = () =>
 ⋮----
-return <LoadingOverlay message=
+const handleHandoff = async (focus?: string) =>
 ⋮----
 <div className=
 ⋮----
@@ -19310,6 +19529,7 @@ type Props = {
   onAutoApproveChanged?: (autoApprove: boolean) => void;
   showSettingsPage?: (pageId?: string, options?: Record<string, unknown>) => void;
   showTaskInfo?: () => void;
+  handoffConversation?: (focus?: string) => Promise<void>;
 };
 ⋮----
 // When recording stops, we reset after a short delay or immediately?
@@ -19357,13 +19577,6 @@ const getAutocompleteDetailLabel = (item: string): [string | null, boolean] =>
 const toggleVoice = () =>
 ⋮----
 onClick=
-⋮----
-// if (instance?.view && !initialTextRefSet.current && savedText) {
-//   setTimeout(() => {
-//     setTextWithDispatch(savedText);
-//   }, 0);
-//   initialTextRefSet.current = true;
-// }
 ⋮----
 className=
 ⋮----
@@ -19528,6 +19741,7 @@ import {
   TASKS_TOOL_GET_TASK_MESSAGE,
   TASKS_TOOL_GROUP_NAME,
   TASKS_TOOL_LIST_TASKS,
+  TASKS_TOOL_SEARCH_TASK,
   MEMORY_TOOL_DELETE,
   MEMORY_TOOL_DESCRIPTIONS,
   MEMORY_TOOL_GROUP_NAME,
@@ -20857,7 +21071,7 @@ type Props = {
   maxInputTokens?: number;
   mode: Mode;
   task: TaskData;
-  updateTask: (updates: Partial<TaskData>) => void;
+  updateTask: (taskId: string, updates: Partial<TaskData>) => void;
 };
 ⋮----
 onClick=
@@ -20941,11 +21155,11 @@ import { clsx } from 'clsx';
 import { formatHumanReadable } from '@/utils/string-utils';
 ⋮----
 type Props = {
+  task: TaskData;
   tokensInfo?: TokensInfoData | null;
   maxInputTokens?: number;
   mode: Mode;
-  task: TaskData;
-  updateTask: (updates: Partial<TaskData>) => void;
+  updateTask: (taskId: string, updates: Partial<TaskData>) => void;
 };
 ⋮----
 // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -22488,7 +22702,6 @@ interface TaskStore {
   taskStateMap: Map<string, TaskState>;
   taskMessagesMap: Map<string, Message[]>;
 
-  ensureTask: (taskId: string) => void;
   updateTaskState: (taskId: string, updates: Partial<TaskState>) => void;
   setMessages: (taskId: string, updateMessages: (prev: Message[]) => Message[]) => void;
   setTodoItems: (taskId: string, updateTodoItems: (prev: TodoItem[]) => TodoItem[]) => void;
@@ -24358,6 +24571,7 @@ export interface LogMessage extends Message {
 ⋮----
 export interface LoadingMessage extends Message {
   type: 'loading';
+  actionIds?: string[];
 }
 ⋮----
 export interface CommandOutputMessage extends Message {
@@ -24579,11 +24793,17 @@ File: src/renderer/src/utils/task-utils.ts
 ================
 import { TaskData } from '@common/types';
 ⋮----
+const getMostRecentUpdatedAt = (task: TaskData, allTasks: TaskData[]): string | undefined =>
+⋮----
 export const getSortedVisibleTasks = (tasks: TaskData[], showArchived: boolean = false, searchQuery: string = ''): TaskData[] =>
+⋮----
+const sortFn = (a: TaskData, b: TaskData) =>
 ⋮----
 // Pinned tasks come first
 ⋮----
-// Then sort by updatedAt
+// Then sort by most recent updatedAt (including subtasks, descending)
+⋮----
+const addTaskWithChildren = (task: TaskData) =>
 
 ================
 File: src/renderer/src/voice/gemini.ts
@@ -24603,6 +24823,8 @@ async startSession(config: VoiceSessionConfig): Promise<VoiceSession>
 // Setup audio processing once and keep it alive
 ⋮----
 private async createGeminiSession(config: VoiceSessionConfig): Promise<VoiceSession>
+⋮----
+// eslint-disable-next-line no-console
 ⋮----
 // eslint-disable-next-line no-console
 ⋮----
@@ -25134,7 +25356,7 @@ File: package.json
     "dev:no-hmr": "NO_HMR=true electron-vite dev",
     "build:mcp": "esbuild src/mcp-server/aider-desk-mcp-server.ts --bundle --platform=node --outdir=out/mcp-server",
     "prebuild:server": "electron-vite build && npm run build:mcp",
-    "build:server": "vite build --config vite.config.server.ts && cp -r resources/ out/resources",
+    "build:server": "vite build --config vite.config.server.ts && mkdir -p out/resources && cp -r resources/* out/resources",
     "postbuild:server": "npm rebuild",
     "build": "npm run typecheck && electron-vite build && npm run build:mcp",
     "postinstall": "electron-builder install-app-deps && node scripts/download-uv.mjs && node scripts/download-probe.mjs && patch-package",

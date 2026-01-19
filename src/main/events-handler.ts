@@ -19,6 +19,7 @@ import {
   ResponseCompletedData,
   SettingsData,
   TaskData,
+  CreateTaskParams,
   TaskStateData,
   TodoItem,
   UsageDataRow,
@@ -236,6 +237,15 @@ export class EventsHandler {
     if (task) {
       await task.compactConversation(mode, customInstructions);
     }
+  }
+
+  async handoffConversation(baseDir: string, taskId: string, focus?: string): Promise<void> {
+    const task = this.projectManager.getProject(baseDir).getTask(taskId);
+    if (!task) {
+      throw new Error('Task not found');
+    }
+    const mode = this.store.getProjectSettings(baseDir).currentMode || 'agent';
+    await task.handoffConversation(mode, focus);
   }
 
   async loadInputHistory(baseDir: string): Promise<string[]> {
@@ -585,8 +595,8 @@ export class EventsHandler {
     }
   }
 
-  async createNewTask(baseDir: string): Promise<TaskData> {
-    return await this.projectManager.getProject(baseDir).createNewTask();
+  async createNewTask(baseDir: string, params?: CreateTaskParams): Promise<TaskData> {
+    return await this.projectManager.getProject(baseDir).createNewTask(params);
   }
 
   async updateTask(baseDir: string, id: string, updates: Partial<TaskData>): Promise<TaskData | undefined> {

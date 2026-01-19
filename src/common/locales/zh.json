@@ -221,6 +221,7 @@
     "modelIdPlaceholder": "例如 custom-gpt-4-turbo",
     "maxInputTokens": "上下文窗口",
     "maxOutputTokens": "最大输出令牌数",
+    "limit": "限制",
     "temperature": "温度",
     "temperatureTooltip": "控制模型响应的随机性。较低的值（0.0-0.3）产生更专注和确定性的输出，而较高的值（0.7-1.0）生成更有创意和多样化的响应。当未设置时，使用模型的默认温度。",
     "cacheWrites": "缓存写入",
@@ -953,7 +954,16 @@
       "getTaskMessage": "获取任务消息",
       "createTask": "创建任务",
       "deleteTask": "删除任务",
+      "searchTask": "搜索任务:",
+      "inTask": "在",
+      "searchTaskNoMatches": "未找到匹配项。",
+      "searchParentTask": "搜索父任务:",
+      "inParentTask": "在",
+      "searchParentTaskNoMatches": "未找到匹配项。",
+      "name": "名称",
+      "parentTaskId": "父任务ID",
       "execute": "执行",
+      "executeInBackground": "在后台执行",
       "yes": "是",
       "no": "否",
       "taskId": "任务ID",
@@ -1138,7 +1148,8 @@
     "stopResponse": "停止响应",
     "sendMessage": "发送消息(Enter)",
     "clearChat": "清除聊天",
-    "agentModeOnly": "仅在代理模式下可用"
+    "agentModeOnly": "仅在代理模式下可用",
+    "handoffError": "交接失败：{{error}}"
   },
   "agentProfiles": {
     "title": "代理配置",
@@ -1213,7 +1224,8 @@
     "tokens": "报告当前聊天上下文使用的令牌数量",
     "undo": "撤消 Aider 完成的最后一次 git 提交",
     "task-info": "显示任务信息",
-    "web": "抓取网页内容并保存到文件。使用 /web url [文件] 格式，其中 [文件] 为可选参数"
+    "web": "抓取网页内容并保存到文件。使用 /web url [文件] 格式，其中 [文件] 为可选参数",
+    "handoff": "交接对话到新任务并聚焦"
   },
   "telemetry": {
     "title": "遥测信息",
@@ -1357,7 +1369,9 @@
     "archiveSelectedConfirm": "您确定要归档 {{count}} 个选中的任务吗？",
     "unarchiveSelectedConfirm": "您确定要取消归档 {{count}} 个选中的任务吗？",
     "generatingName": "正在生成名称...",
-    "changeState": "更改状态"
+    "changeState": "更改状态",
+    "createSubtask": "创建子任务",
+    "deleteConfirmWithSubtasks": "此任务有 {{count}} 个子任务。仍然要删除吗？"
   },
   "taskInfo": {
     "createdAt": "创建于",
