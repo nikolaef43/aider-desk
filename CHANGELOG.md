@@ -1,5 +1,11 @@
 # Changelog
 
+## [UNRELEASED]
+
+- further improvement to the rendering performance
+- properly showing the Aider cost
+- added option to disable thinking for Z.AI Coding Plan provider models
+
 ## [0.49.0]
 
 - improved responsiveness for small screen devices with mobile-first layouts for task sidebar, task bar, and prompt field components

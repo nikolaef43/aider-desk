@@ -75,6 +75,20 @@ import { PromptsManager } from '@/prompts';
 export const INTERNAL_TASK_ID = 'internal';
 export const RESPONSE_CHUNK_FLUSH_INTERVAL_MS = 10;
 
+export const EMPTY_TASK_DATA: TaskData = {
+  id: '',
+  baseDir: '',
+  name: '',
+  archived: false,
+  aiderTotalCost: 0,
+  agentTotalCost: 0,
+  mainModel: '',
+  currentMode: 'agent',
+  contextCompactingThreshold: 0,
+  weakModelLocked: false,
+  parentId: null,
+};
+
 export class Task {
   private initialized = false;
   private initPromise: Promise<void> | null = null;
@@ -116,15 +130,7 @@ export class Task {
     initialTaskData?: Partial<TaskData>,
   ) {
     this.task = {
-      name: '',
-      archived: false,
-      aiderTotalCost: 0,
-      agentTotalCost: 0,
-      mainModel: '',
-      currentMode: 'agent',
-      contextCompactingThreshold: 0,
-      weakModelLocked: false,
-      parentId: null,
+      ...EMPTY_TASK_DATA,
       ...initialTaskData,
       id: taskId,
       baseDir: project.baseDir,
@@ -345,6 +351,7 @@ export class Task {
     logger.info('Saved task data', {
       baseDir: this.project.baseDir,
       taskId: this.taskId,
+      task: this.task,
     });
 
     return this.task;
@@ -1095,7 +1102,7 @@ export class Task {
       }
 
       if (usageReport) {
-        logger.debug(`Usage report: ${JSON.stringify(usageReport)}`);
+        logger.info(`Usage report: ${JSON.stringify(usageReport)}`);
         this.updateTotalCosts(usageReport);
       }
       const data: ResponseCompletedData = {
@@ -1213,21 +1220,25 @@ export class Task {
     return false;
   }
 
-  public async addFile(contextFile: ContextFile) {
-    const hookResult = await this.hookManager.trigger('onFileAdded', { file: contextFile }, this, this.project);
-    if (hookResult.blocked) {
-      logger.info('File addition blocked by hook');
-      return false;
-    }
-    contextFile = hookResult.event.file;
+  public async addFiles(...contextFiles: ContextFile[]) {
+    const addedFiles: ContextFile[] = [];
 
-    const normalizedPath = this.normalizeFilePath(contextFile.path);
-    logger.debug('Adding file or folder:', {
-      path: normalizedPath,
-      readOnly: contextFile.readOnly,
-    });
-    const fileToAdd = { ...contextFile, path: normalizedPath };
-    const addedFiles = await this.contextManager.addContextFile(fileToAdd);
+    for (let contextFile of contextFiles) {
+      const hookResult = await this.hookManager.trigger('onFileAdded', { file: contextFile }, this, this.project);
+      if (hookResult.blocked) {
+        logger.info('File addition blocked by hook');
+        return false;
+      }
+      contextFile = hookResult.event.file;
+
+      const normalizedPath = this.normalizeFilePath(contextFile.path);
+      logger.debug('Adding file or folder:', {
+        path: normalizedPath,
+        readOnly: contextFile.readOnly,
+      });
+      const fileToAdd = { ...contextFile, path: normalizedPath };
+      addedFiles.push(...(await this.contextManager.addContextFile(fileToAdd)));
+    }
     if (addedFiles.length === 0) {
       return false;
     }
@@ -1626,7 +1637,7 @@ export class Task {
         }
 
         if (addAllRemaining) {
-          await this.addFile({ path: filePath, readOnly: false });
+          await this.addFiles({ path: filePath, readOnly: false });
           continue;
         }
 
@@ -1653,12 +1664,12 @@ export class Task {
 
         if (answer === 'a') {
           addAllRemaining = true;
-          await this.addFile({ path: filePath, readOnly: false });
+          await this.addFiles({ path: filePath, readOnly: false });
           continue;
         }
 
         if (answer === 'y') {
-          await this.addFile({ path: filePath, readOnly: false });
+          await this.addFiles({ path: filePath, readOnly: false });
         }
       }
     } catch (error) {
@@ -1992,7 +2003,8 @@ export class Task {
       });
     }
     if (usageReport.aiderTotalCost) {
-      this.task.aiderTotalCost = usageReport.aiderTotalCost;
+      this.task.aiderTotalCost += usageReport.messageCost;
+      this.eventManager.sendTaskUpdated(this.task);
     }
   }
 
@@ -2308,9 +2320,7 @@ export class Task {
     await newTask.savePromptOnly(generatedPrompt, false);
 
     // Transfer context files
-    for (const file of contextFiles) {
-      await newTask.addFile(file);
-    }
+    await newTask.addFiles(...contextFiles);
 
     // Send task-created event to trigger activation and handoff
     this.eventManager.sendTaskCreated(newTask.task, true);
@@ -3234,9 +3244,7 @@ ${error.stderr}`,
 
     // Copy context files
     const contextFiles = await sourceTask.getContextFiles();
-    for (const file of contextFiles) {
-      await this.addFile(file);
-    }
+    await this.addFiles(...contextFiles);
 
     // Copy messages
     const messages = await sourceTask.getContextMessages();
