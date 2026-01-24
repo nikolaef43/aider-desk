@@ -6,6 +6,12 @@
 - properly showing the Aider cost
 - added option to disable thinking for Z.AI Coding Plan provider models
 - hidden pin and state change actions for new tasks
+- search field for messages (CTRL+F) properly showing only for active project
+- added optimistic user message on prompt submission for better user experience
+- updated notification messages to include task name and state
+- added support for terminals in the browser
+- added visual indicator to project tab when that project is in progress
+- improved usability of message virtual rendering
 
 ## [0.49.0]
 

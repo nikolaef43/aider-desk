@@ -1,12 +1,13 @@
-import { InputHistoryData, ProjectData, ProjectStartMode, TaskCreatedData, TaskData } from '@common/types';
+import { InputHistoryData, ProjectStartMode, TaskCreatedData, TaskData } from '@common/types';
 import { useTranslation } from 'react-i18next';
-import { startTransition, useCallback, useEffect, useOptimistic, useRef, useState, useTransition } from 'react';
+import { Activity, startTransition, useCallback, useEffect, useOptimistic, useRef, useState, useTransition } from 'react';
 import { useLocalStorage } from '@reactuses/core';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { clsx } from 'clsx';
 
 import { COLLAPSED_WIDTH, EXPANDED_WIDTH, TaskSidebar } from './TaskSidebar/TaskSidebar';
 
+import { useProjectTasks, useProjectStore } from '@/stores/projectStore';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useProjectSettings } from '@/contexts/ProjectSettingsContext';
 import { LoadingOverlay } from '@/components/common/LoadingOverlay';
@@ -19,12 +20,12 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useBooleanState } from '@/hooks/useBooleanState';
 
 type Props = {
-  project: ProjectData;
-  isActive?: boolean;
+  projectDir: string;
+  isProjectActive?: boolean;
   showSettingsPage?: (pageId?: string, options?: Record<string, unknown>) => void;
 };
 
-export const ProjectView = ({ project, isActive = false, showSettingsPage }: Props) => {
+export const ProjectView = ({ projectDir, isProjectActive = false, showSettingsPage }: Props) => {
   const { t } = useTranslation();
   const { settings } = useSettings();
   const { projectSettings } = useProjectSettings();
@@ -32,13 +33,14 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
   const { TASK_HOTKEYS } = useConfiguredHotkeys();
   const { isMobile } = useResponsive();
 
+  const { setProjectTasks, updateProjectTask, addProjectTask, removeProjectTask, clearProjectTasks } = useProjectStore();
+  const tasks = useProjectTasks(projectDir);
+  const [optimisticTasks, setOptimisticTasks] = useOptimistic(tasks);
   const [inputHistory, setInputHistory] = useState<string[]>([]);
   const [starting, setStarting] = useState(true);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [tasksLoading, setTasksLoading] = useState(true);
-  const [tasks, setTasks] = useState<TaskData[]>([]);
-  const [optimisticTasks, setOptimisticTasks] = useOptimistic(tasks);
-  const [isTaskBarCollapsed, setIsTaskBarCollapsed] = useLocalStorage(`task-sidebar-collapsed-${project.baseDir}`, false);
+  const [isTaskBarCollapsed, setIsTaskBarCollapsed] = useLocalStorage(`task-sidebar-collapsed-${projectDir}`, false);
   const [isTaskSidebarOpen, , hideTaskSidebar, toggleTaskSidebar] = useBooleanState();
   const [shouldFocusNewTask, setShouldFocusNewTask] = useState(false);
   const taskViewRef = useRef<TaskViewRef>(null);
@@ -82,7 +84,7 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
           return;
         }
 
-        const newTask = await api.createNewTask(project.baseDir, parentId ? { parentId } : undefined);
+        const newTask = await api.createNewTask(projectDir, parentId ? { parentId } : undefined);
         activateTask(newTask.id, false, true);
       } catch (error) {
         // eslint-disable-next-line no-console
@@ -91,7 +93,7 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
         creatingTaskRef.current = false;
       }
     },
-    [starting, tasksLoading, tasks, api, project.baseDir, activateTask, activeTaskId, focusActiveTaskPrompt],
+    [starting, tasksLoading, tasks, api, projectDir, activateTask, activeTaskId, focusActiveTaskPrompt],
   );
 
   useHotkeys(
@@ -102,11 +104,11 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
     },
     {
       scopes: 'task',
-      enabled: isActive,
+      enabled: isProjectActive,
       enableOnFormTags: true,
       enableOnContentEditable: true,
     },
-    [TASK_HOTKEYS.NEW_TASK, createNewTask, isActive],
+    [TASK_HOTKEYS.NEW_TASK, createNewTask, isProjectActive],
   );
 
   useEffect(() => {
@@ -122,7 +124,7 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
           } else if (!creatingTaskRef.current) {
             creatingTaskRef.current = true;
             try {
-              startupTask = await api.createNewTask(project.baseDir);
+              startupTask = await api.createNewTask(projectDir);
             } finally {
               creatingTaskRef.current = false;
             }
@@ -138,7 +140,7 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
             } else if (!creatingTaskRef.current) {
               creatingTaskRef.current = true;
               try {
-                startupTask = await api.createNewTask(project.baseDir);
+                startupTask = await api.createNewTask(projectDir);
               } finally {
                 creatingTaskRef.current = false;
               }
@@ -158,7 +160,7 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
     };
 
     const handleTaskCreated = ({ task, activate }: TaskCreatedData) => {
-      setTasks((prev) => [...prev, task]);
+      addProjectTask(projectDir, task);
 
       if (activate) {
         activateTask(task.id);
@@ -166,27 +168,27 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
     };
 
     const handleTaskInitialized = (taskData: TaskData) => {
-      setTasks((prev) => prev.map((task) => (task.id === taskData.id ? taskData : task)));
+      updateProjectTask(projectDir, taskData);
     };
 
     const handleTaskUpdated = (taskData: TaskData) => {
-      setTasks((prev) => prev.map((task) => (task.id === taskData.id ? taskData : task)));
+      updateProjectTask(projectDir, taskData);
     };
 
     const handleTaskStarted = (taskData: TaskData) => {
-      setTasks((prev) => prev.map((task) => (task.id === taskData.id ? taskData : task)));
+      updateProjectTask(projectDir, taskData);
     };
 
     const handleTaskCompleted = (taskData: TaskData) => {
-      setTasks((prev) => prev.map((task) => (task.id === taskData.id ? taskData : task)));
+      updateProjectTask(projectDir, taskData);
     };
 
     const handleTaskCancelled = (taskData: TaskData) => {
-      setTasks((prev) => prev.map((task) => (task.id === taskData.id ? taskData : task)));
+      updateProjectTask(projectDir, taskData);
     };
 
     const handleTaskDeleted = (taskData: TaskData) => {
-      setTasks((prev) => prev.filter((task) => task.id !== taskData.id));
+      removeProjectTask(projectDir, taskData.id);
     };
 
     const handleInputHistoryUpdate = (data: InputHistoryData) => {
@@ -194,28 +196,28 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
     };
 
     // Set up listeners
-    const removeProjectStartedListener = api.addProjectStartedListener(project.baseDir, handleProjectStarted);
-    const removeTaskCreatedListener = api.addTaskCreatedListener(project.baseDir, handleTaskCreated);
-    const removeTaskInitializedListener = api.addTaskInitializedListener(project.baseDir, handleTaskInitialized);
-    const removeTaskUpdatedListener = api.addTaskUpdatedListener(project.baseDir, handleTaskUpdated);
-    const removeTaskStartedListener = api.addTaskStartedListener(project.baseDir, handleTaskStarted);
-    const removeTaskCompletedListener = api.addTaskCompletedListener(project.baseDir, handleTaskCompleted);
-    const removeTaskCancelledListener = api.addTaskCancelledListener(project.baseDir, handleTaskCancelled);
-    const removeTaskDeletedListener = api.addTaskDeletedListener(project.baseDir, handleTaskDeleted);
+    const removeProjectStartedListener = api.addProjectStartedListener(projectDir, handleProjectStarted);
+    const removeTaskCreatedListener = api.addTaskCreatedListener(projectDir, handleTaskCreated);
+    const removeTaskInitializedListener = api.addTaskInitializedListener(projectDir, handleTaskInitialized);
+    const removeTaskUpdatedListener = api.addTaskUpdatedListener(projectDir, handleTaskUpdated);
+    const removeTaskStartedListener = api.addTaskStartedListener(projectDir, handleTaskStarted);
+    const removeTaskCompletedListener = api.addTaskCompletedListener(projectDir, handleTaskCompleted);
+    const removeTaskCancelledListener = api.addTaskCancelledListener(projectDir, handleTaskCancelled);
+    const removeTaskDeletedListener = api.addTaskDeletedListener(projectDir, handleTaskDeleted);
 
-    const removeInputHistoryListener = api.addInputHistoryUpdatedListener(project.baseDir, handleInputHistoryUpdate);
+    const removeInputHistoryListener = api.addInputHistoryUpdatedListener(projectDir, handleInputHistoryUpdate);
 
     const initProject = async () => {
       try {
         // Start project
         setStarting(true);
-        await api.startProject(project.baseDir);
+        await api.startProject(projectDir);
         setStarting(false);
 
         // Load tasks
         setTasksLoading(true);
-        const tasks = await api.getTasks(project.baseDir);
-        setTasks(tasks);
+        const tasks = await api.getTasks(projectDir);
+        setProjectTasks(projectDir, tasks);
         setTasksLoading(false);
 
         // Handle startup mode
@@ -238,8 +240,9 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
       removeTaskCancelledListener();
       removeTaskDeletedListener();
       removeInputHistoryListener();
+      clearProjectTasks(projectDir);
     };
-  }, [activateTask, api, project.baseDir, settings?.startupMode]);
+  }, [activateTask, api, projectDir, settings?.startupMode, clearProjectTasks, setProjectTasks, updateProjectTask, addProjectTask, removeProjectTask]);
 
   const handleTaskSelect = useCallback(
     (taskId: string) => {
@@ -289,7 +292,7 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
       switchToTaskByIndex(index);
     },
     {
-      enabled: isActive,
+      enabled: isProjectActive,
       scopes: 'task',
       enableOnFormTags: true,
       enableOnContentEditable: true,
@@ -317,14 +320,14 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
               ),
             );
           }
-          await api.updateTask(project.baseDir, taskId, updates);
+          await api.updateTask(projectDir, taskId, updates);
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('Failed to update task:', error);
         }
       });
     },
-    [api, project.baseDir, setOptimisticTasks],
+    [api, projectDir, setOptimisticTasks],
   );
 
   const handleDeleteTask = useCallback(
@@ -332,7 +335,7 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
       startTransition(async () => {
         try {
           setOptimisticTasks((prev) => prev.filter((task) => task.id !== taskId));
-          await api.deleteTask(project.baseDir, taskId);
+          await api.deleteTask(projectDir, taskId);
           if (activeTaskId === taskId) {
             await createNewTask();
           }
@@ -343,29 +346,33 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
         }
       });
     },
-    [activeTaskId, api, createNewTask, project.baseDir, setOptimisticTasks],
+    [activeTaskId, api, createNewTask, projectDir, setOptimisticTasks],
   );
+
+  const handleDeleteActiveTask = useCallback(async () => {
+    if (activeTaskId) {
+      await handleDeleteTask(activeTaskId);
+    }
+  }, [activeTaskId, handleDeleteTask]);
 
   const handleProceed = useCallback(() => {
     if (!activeTask) {
       return;
     }
-    api.runPrompt(project.baseDir, activeTask.id, 'Proceed.', activeTask.currentMode || 'code');
-  }, [activeTask, api, project.baseDir]);
+    api.runPrompt(projectDir, activeTask.id, 'Proceed.', activeTask.currentMode || 'code');
+  }, [activeTask, api, projectDir]);
 
-  const handleArchiveTask = useCallback(
-    async (taskId: string) => {
-      await handleUpdateTask(taskId, { archived: true });
-    },
-    [handleUpdateTask],
-  );
+  const handleArchiveActiveTask = useCallback(async () => {
+    if (activeTaskId) {
+      await handleUpdateTask(activeTaskId, { archived: true });
+    }
+  }, [activeTaskId, handleUpdateTask]);
 
-  const handleUnarchiveTask = useCallback(
-    async (taskId: string) => {
-      await handleUpdateTask(taskId, { archived: false });
-    },
-    [handleUpdateTask],
-  );
+  const handleUnarchiveActiveTask = useCallback(async () => {
+    if (activeTaskId) {
+      await handleUpdateTask(activeTaskId, { archived: false });
+    }
+  }, [activeTaskId, handleUpdateTask]);
 
   // Close current task
   useHotkeys(
@@ -390,19 +397,19 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
   const handleExportTaskToMarkdown = useCallback(
     async (taskId: string) => {
       try {
-        await api.exportTaskToMarkdown(project.baseDir, taskId);
+        await api.exportTaskToMarkdown(projectDir, taskId);
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Failed to export task to markdown:', error);
       }
     },
-    [api, project.baseDir],
+    [api, projectDir],
   );
 
   const handleDuplicateTask = useCallback(
     async (taskId: string) => {
       try {
-        const duplicatedTask = await api.duplicateTask(project.baseDir, taskId);
+        const duplicatedTask = await api.duplicateTask(projectDir, taskId);
         // Optionally switch to the new task
         handleTaskSelect(duplicatedTask.id);
       } catch (error) {
@@ -410,7 +417,7 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
         console.error('Failed to duplicate task:', error);
       }
     },
-    [api, project.baseDir, handleTaskSelect],
+    [api, projectDir, handleTaskSelect],
   );
 
   const handleUpdateOptimisticTaskState = useCallback(
@@ -436,7 +443,7 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
   }
 
   return (
-    <TaskProvider baseDir={project.baseDir} tasks={tasks}>
+    <TaskProvider baseDir={projectDir} tasks={tasks}>
       <div className="h-full w-full bg-gradient-to-b from-bg-primary to-bg-primary-light relative">
         {starting && <LoadingOverlay message={t('common.startingUp')} />}
 
@@ -468,22 +475,24 @@ export const ProjectView = ({ project, isActive = false, showSettingsPage }: Pro
         >
           {isActiveTaskSwitching && <LoadingOverlay message={t('common.loadingTask')} animateOpacity />}
           {activeTask && (
-            <TaskView
-              ref={taskViewRef}
-              project={project}
-              task={activeTask}
-              updateTask={handleUpdateTask}
-              updateOptimisticTaskState={handleUpdateOptimisticTaskState}
-              inputHistory={inputHistory}
-              isActive={isActive && activeTaskId === activeTask.id}
-              shouldFocusPrompt={shouldFocusNewTask}
-              showSettingsPage={showSettingsPage}
-              onProceed={handleProceed}
-              onArchiveTask={() => handleArchiveTask(activeTask.id)}
-              onUnarchiveTask={() => handleUnarchiveTask(activeTask.id)}
-              onDeleteTask={() => handleDeleteTask(activeTask.id)}
-              onToggleTaskSidebar={isMobile ? toggleTaskSidebar : undefined}
-            />
+            <Activity mode={isProjectActive ? 'visible' : 'hidden'}>
+              <TaskView
+                ref={taskViewRef}
+                projectDir={projectDir}
+                task={activeTask}
+                updateTask={handleUpdateTask}
+                updateOptimisticTaskState={handleUpdateOptimisticTaskState}
+                inputHistory={inputHistory}
+                isActive={activeTaskId === activeTask.id}
+                shouldFocusPrompt={shouldFocusNewTask}
+                showSettingsPage={showSettingsPage}
+                onProceed={handleProceed}
+                onArchiveTask={handleArchiveActiveTask}
+                onUnarchiveTask={handleUnarchiveActiveTask}
+                onDeleteTask={handleDeleteActiveTask}
+                onToggleTaskSidebar={isMobile ? toggleTaskSidebar : undefined}
+              />
+            </Activity>
           )}
         </div>
       </div>
