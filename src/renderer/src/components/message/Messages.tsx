@@ -39,6 +39,7 @@ type Props = {
   onUnarchiveTask?: () => void;
   onDeleteTask?: () => void;
   onInterrupt?: () => void;
+  onForkFromMessage?: (message: Message) => void;
 };
 
 const MessagesComponent = forwardRef<MessagesRef, Props>(
@@ -60,6 +61,7 @@ const MessagesComponent = forwardRef<MessagesRef, Props>(
       onUnarchiveTask,
       onDeleteTask,
       onInterrupt,
+      onForkFromMessage,
     },
     ref,
   ) => {
@@ -128,7 +130,7 @@ const MessagesComponent = forwardRef<MessagesRef, Props>(
     }));
 
     return (
-      <div className="group relative flex flex-col h-full">
+      <div className="relative flex flex-col h-full">
         <div
           ref={messagesContainerRef}
           className="flex flex-col flex-grow overflow-y-auto max-h-full p-4 scrollbar-thin scrollbar-track-bg-primary-light scrollbar-thumb-bg-tertiary hover:scrollbar-thumb-bg-fourth"
@@ -178,6 +180,7 @@ const MessagesComponent = forwardRef<MessagesRef, Props>(
                 redo={index === lastUserMessageIndex && !inProgress ? redoLastUserPrompt : undefined}
                 edit={index === lastUserMessageIndex ? editLastUserMessage : undefined}
                 onInterrupt={onInterrupt}
+                onFork={onForkFromMessage ? () => onForkFromMessage(message) : undefined}
               />
             );
           })}

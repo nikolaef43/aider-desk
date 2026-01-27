@@ -41,6 +41,7 @@ type Props = {
   onUnarchiveTask?: () => void;
   onDeleteTask?: () => void;
   onInterrupt?: () => void;
+  onForkFromMessage?: (message: Message) => void;
 };
 
 export const VirtualizedMessages = forwardRef<VirtualizedMessagesRef, Props>(
@@ -62,6 +63,7 @@ export const VirtualizedMessages = forwardRef<VirtualizedMessagesRef, Props>(
       onUnarchiveTask,
       onDeleteTask,
       onInterrupt,
+      onForkFromMessage,
     },
     ref,
   ) => {
@@ -147,7 +149,7 @@ export const VirtualizedMessages = forwardRef<VirtualizedMessagesRef, Props>(
     }));
 
     return (
-      <div className="group relative flex flex-col h-full">
+      <div className="relative flex flex-col h-full">
         <StyledTooltip id="usage-info-tooltip" />
 
         <div
@@ -204,6 +206,7 @@ export const VirtualizedMessages = forwardRef<VirtualizedMessagesRef, Props>(
                       remove={inProgress ? undefined : () => removeMessage(message)}
                       redo={virtualRow.index === lastUserMessageIndex && !inProgress ? redoLastUserPrompt : undefined}
                       edit={virtualRow.index === lastUserMessageIndex ? editLastUserMessage : undefined}
+                      onFork={onForkFromMessage ? () => onForkFromMessage(message) : undefined}
                       onInterrupt={onInterrupt}
                     />
                   )}
@@ -213,7 +216,7 @@ export const VirtualizedMessages = forwardRef<VirtualizedMessagesRef, Props>(
           </div>
         </div>
 
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex gap-1">
+        <div className="absolute left-1/2 -translate-x-1/2 w-[50%] bottom-0 z-10 flex justify-center gap-1 pt-10 pb-2 group">
           {(hasPreviousUserMessage || hasNextUserMessage) && renderGoToPrevious()}
           {scrollingPaused && (
             <IconButton
